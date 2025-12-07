@@ -12,7 +12,9 @@ const Color kUniRideTeal2 = Color(0xFF009DAE);
 const Color kUniRideYellow = Color(0xFFFFC727);
 
 class MyRidesScreen extends StatefulWidget {
-  const MyRidesScreen({super.key});
+  final int initialTabIndex;
+  
+  const MyRidesScreen({super.key, this.initialTabIndex = 0});
 
   @override
   State<MyRidesScreen> createState() => _MyRidesScreenState();
@@ -25,7 +27,11 @@ class _MyRidesScreenState extends State<MyRidesScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialTabIndex,
+    );
   }
 
   @override
@@ -84,6 +90,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
       stream: FirebaseFirestore.instance
           .collection("rides")
           .where("driverId", isEqualTo: userId)
+          .where("status", whereIn: ["active", "cancelled"])
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -105,21 +112,19 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         print('User ID: $userId');
         print('Rides found: ${snapshot.data?.docs.length ?? 0}');
         
+        // Debug: Print each ride's details
+        if (snapshot.hasData) {
+          for (var doc in snapshot.data!.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            print('Ride ${doc.id}: driverId=${data['driverId']}, status=${data['status']}');
+          }
+        }
+        
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  "You haven't offered any rides yet.",
-                  style: TextStyle(color: Colors.black54, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "User ID: $userId",
-                  style: const TextStyle(color: Colors.black38, fontSize: 12),
-                ),
-              ],
+          return const Center(
+            child: Text(
+              "You haven't offered any rides yet.",
+              style: TextStyle(color: Colors.black54, fontSize: 16),
             ),
           );
         }
@@ -135,12 +140,17 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           final data = ride.data() as Map<String, dynamic>;
           final rideDateTime = _parseDateTime(data['date'], data['time']);
           
+          print('Ride date: ${data['date']}, time: ${data['time']}');
+          print('Parsed datetime: $rideDateTime, now: $now, isAfter: ${rideDateTime.isAfter(now)}');
+          
           if (rideDateTime.isAfter(now)) {
             upcomingRides.add(ride);
           } else {
             pastRides.add(ride);
           }
         }
+        
+        print('Upcoming rides: ${upcomingRides.length}, Past rides: ${pastRides.length}');
         
         // Sort both lists by time (nearest first for upcoming, most recent first for past)
         upcomingRides.sort((a, b) {
@@ -162,9 +172,10 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         return ListView.builder(
           padding: const EdgeInsets.all(16),
           itemCount: upcomingRides.length + pastRides.length + 
-                    (upcomingRides.isNotEmpty && pastRides.isNotEmpty ? 2 : 0),
+                    (upcomingRides.isNotEmpty ? 1 : 0) + 
+                    (pastRides.isNotEmpty ? 1 : 0),
           itemBuilder: (context, index) {
-            // Upcoming rides section
+            // Upcoming rides section header
             if (upcomingRides.isNotEmpty && index == 0) {
               return const Padding(
                 padding: EdgeInsets.only(bottom: 12, top: 4),
@@ -226,8 +237,9 @@ class _MyRidesScreenState extends State<MyRidesScreen>
     
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('ride_requests')
+          .collectionGroup('requests')
           .where('passengerId', isEqualTo: userId)
+          .where('status', whereIn: ['pending', 'accepted'])
           .snapshots(),
       builder: (context, snapshot) {
         print('StreamBuilder callback - connectionState: ${snapshot.connectionState}');
@@ -256,25 +268,10 @@ class _MyRidesScreenState extends State<MyRidesScreen>
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           print('No ride requests found for user $userId');
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text(
-                  "You haven't requested any rides yet.",
-                  style: TextStyle(color: Colors.black54, fontSize: 16),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "User ID: $userId",
-                  style: const TextStyle(color: Colors.black38, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "Collection: ride_requests",
-                  style: const TextStyle(color: Colors.black38, fontSize: 12),
-                ),
-              ],
+          return const Center(
+            child: Text(
+              "You haven't requested any rides yet.",
+              style: TextStyle(color: Colors.black54, fontSize: 16),
             ),
           );
         }
@@ -354,7 +351,8 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             if (index > 0 && index <= upcomingRequests.length) {
               final doc = upcomingRequests[index - 1];
               final data = doc.data() as Map<String, dynamic>;
-              final rideId = data['rideId'] ?? '';
+              // Get rideId from the parent document reference (since it's in a subcollection)
+              final rideId = doc.reference.parent.parent?.id ?? '';
               
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
@@ -394,7 +392,8 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             final pastIndex = index - upcomingRequests.length - (upcomingRequests.isNotEmpty ? 1 : 0) - 1;
             final doc = pastRequests[pastIndex];
             final data = doc.data() as Map<String, dynamic>;
-            final rideId = data['rideId'] ?? '';
+            // Get rideId from the parent document reference (since it's in a subcollection)
+            final rideId = doc.reference.parent.parent?.id ?? '';
             
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),

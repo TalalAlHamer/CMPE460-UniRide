@@ -5,15 +5,65 @@ import '../home_screen.dart';
 import '../my_rides_screen.dart';
 import '../profile_screen.dart';
 
-class BottomNav extends StatelessWidget {
+// Cache the pending count stream to prevent rebuilds
+class _PendingRequestsCache {
+  static Stream<int>? _cachedStream;
+  static String? _cachedUserId;
+
+  static Stream<int> getStream(String userId) {
+    // Return cached stream if it exists for the same user
+    if (_cachedStream != null && _cachedUserId == userId) {
+      return _cachedStream!;
+    }
+
+    // Create new stream that listens to both rides and requests in real-time
+    _cachedUserId = userId;
+    _cachedStream = FirebaseFirestore.instance
+        .collection('rides')
+        .where('driverId', isEqualTo: userId)
+        .snapshots()
+        .asyncMap((ridesSnapshot) async {
+      if (ridesSnapshot.docs.isEmpty) return 0;
+
+      final userRideIds = ridesSnapshot.docs.map((doc) => doc.id).toList();
+      
+      // Use snapshots() instead of get() for real-time updates
+      int totalPending = 0;
+      
+      // Query pending requests for each ride using snapshots for real-time
+      for (final rideId in userRideIds) {
+        final pendingCount = await FirebaseFirestore.instance
+            .collection('rides')
+            .doc(rideId)
+            .collection('requests')
+            .where('status', isEqualTo: 'pending')
+            .get()
+            .then((snapshot) => snapshot.docs.length);
+        
+        totalPending += pendingCount;
+      }
+
+      return totalPending;
+    });
+
+    return _cachedStream!;
+  }
+}
+
+class BottomNav extends StatefulWidget {
   final int currentIndex;
 
   const BottomNav({super.key, required this.currentIndex});
 
   @override
+  State<BottomNav> createState() => _BottomNavState();
+}
+
+class _BottomNavState extends State<BottomNav> {
+  @override
   Widget build(BuildContext context) {
     return BottomNavigationBar(
-      currentIndex: currentIndex,
+      currentIndex: widget.currentIndex,
       selectedItemColor: Colors.teal,
       unselectedItemColor: Colors.grey,
       backgroundColor: Colors.white,
@@ -21,7 +71,7 @@ class BottomNav extends StatelessWidget {
       elevation: 8,
 
       onTap: (index) {
-        if (index == currentIndex) return;
+        if (index == widget.currentIndex) return;
 
         Widget? targetScreen;
         switch (index) {
@@ -84,65 +134,49 @@ class BottomNav extends StatelessWidget {
       return const Icon(Icons.person);
     }
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('rides')
-          .where('driverId', isEqualTo: currentUser.uid)
-          .snapshots(),
-      builder: (context, ridesSnapshot) {
-        return StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collectionGroup('requests')
-              .where('status', isEqualTo: 'pending')
-              .snapshots(),
-          builder: (context, requestsSnapshot) {
-            int totalPending = 0;
-            
-            if (requestsSnapshot.hasData && ridesSnapshot.hasData) {
-              final userRideIds = ridesSnapshot.data!.docs.map((doc) => doc.id).toList();
-              
-              for (var requestDoc in requestsSnapshot.data!.docs) {
-                final rideId = requestDoc.reference.parent.parent?.id;
-                if (rideId != null && userRideIds.contains(rideId)) {
-                  totalPending++;
-                }
-              }
-            }
-            
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.person),
-                if (totalPending > 0)
-                  Positioned(
-                    right: -6,
-                    top: -4,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Text(
-                        totalPending > 99 ? '99+' : '$totalPending',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
+    return StreamBuilder<int>(
+      stream: _PendingRequestsCache.getStream(currentUser.uid),
+      builder: (context, snapshot) {
+        final totalPending = snapshot.data ?? 0;
+        
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            const Icon(Icons.person),
+            if (totalPending > 0)
+              Positioned(
+                right: -6,
+                top: -4,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
                   ),
-              ],
-            );
-          },
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    totalPending > 99 ? '99+' : '$totalPending',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    // Don't clear cache here - let it persist across navigations
+    super.dispose();
   }
 }

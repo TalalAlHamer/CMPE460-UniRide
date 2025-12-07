@@ -148,19 +148,99 @@ class PassengerRequestConfirmationScreen extends StatelessWidget {
                   const Divider(),
                   const SizedBox(height: 12),
 
-                  // Route
-                  _infoRow("From", from ?? "N/A"),
+                  // Pickup location with icon
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.location_on,
+                        size: 20,
+                        color: Colors.green,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          from ?? "N/A",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
-                  _infoRow("To", to ?? "N/A"),
+
+                  // Destination with icon
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.flag,
+                        size: 20,
+                        color: Colors.red,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          to ?? "N/A",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
 
                   const SizedBox(height: 12),
                   const Divider(),
                   const SizedBox(height: 12),
 
-                  // Date & Time
-                  _infoRow("Date", date ?? "N/A"),
+                  // Date with icon
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 18,
+                        color: Colors.black54,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          date ?? "N/A",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
-                  _infoRow("Time", time ?? "N/A"),
+
+                  // Time with icon
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time,
+                        size: 18,
+                        color: Colors.black54,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          time ?? "N/A",
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
 
                   if (carMake != null ||
                       carModel != null ||

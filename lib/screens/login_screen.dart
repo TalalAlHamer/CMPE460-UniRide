@@ -290,52 +290,71 @@ class _LoginScreenState extends State<LoginScreen>
     bool obscure = false,
     Widget? suffix,
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          height: 58,
-          padding: const EdgeInsets.symmetric(horizontal: 18),
+    final focusNode = FocusNode();
+    
+    return StatefulBuilder(
+      builder: (context, setState) {
+        focusNode.addListener(() {
+          setState(() {});
+        });
+
+        return Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.75),
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: kUniRideTeal2.withOpacity(0.25)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black12,
-                blurRadius: 8,
-                offset: const Offset(0, 3),
-              ),
-            ],
+            border: Border.all(
+              color: focusNode.hasFocus 
+                ? kUniRideTeal2 
+                : Colors.transparent,
+              width: 2.5,
+            ),
           ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(22),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(
+                height: 58,
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.75),
+                  borderRadius: BorderRadius.circular(22),
+                ),
 
-          child: Row(
-            children: [
-              Icon(icon, color: kUniRideTeal2, size: 22),
-              const SizedBox(width: 12),
+                child: Row(
+                  children: [
+                    Icon(icon, color: kUniRideTeal2, size: 22),
+                    const SizedBox(width: 12),
 
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  obscureText: obscure,
-                  decoration: InputDecoration(
-                    hintText: hint,
-                    border: InputBorder.none,
-                    isCollapsed: true, // FIXES VERTICAL FLOATING
-                    hintStyle: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.black54,
+                    Expanded(
+                      child: TextField(
+                        controller: controller,
+                        focusNode: focusNode,
+                        obscureText: obscure,
+                        decoration: InputDecoration(
+                          hintText: hint,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          isCollapsed: true, // FIXES VERTICAL FLOATING
+                          hintStyle: const TextStyle(
+                            fontSize: 16,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+
+                    if (suffix != null) suffix,
+                  ],
                 ),
               ),
-
-              if (suffix != null) suffix,
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

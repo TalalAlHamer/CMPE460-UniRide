@@ -302,34 +302,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     target: _center,
                                     zoom: 13,
                                   ),
-                                  markers: {
-                                    // USER LOCATION MARKER
-                                    if (_userLocation != null)
-                                      Marker(
-                                        markerId: const MarkerId('userLocation'),
-                                        position: _userLocation!,
-                                        infoWindow: const InfoWindow(
-                                          title: 'Your Location',
-                                        ),
-                                        icon: BitmapDescriptor.defaultMarkerWithHue(
-                                          BitmapDescriptor.hueBlue,
-                                        ),
-                                      ),
-                                    // PIN WHERE USER TAPS
-                                    if (_selectedPoint != null)
-                                      Marker(
-                                        markerId: const MarkerId('selectedPoint'),
-                                        position: _selectedPoint!,
-                                        infoWindow: const InfoWindow(
-                                          title: 'Selected Location',
-                                        ),
-                                      ),
-                                  },
-                                  onTap: (LatLng point) {
-                                    setState(() {
-                                      _selectedPoint = point;
-                                    });
-                                  },
+                                  markers: const {},
                                   zoomControlsEnabled: false,
                                   myLocationButtonEnabled: false,
                                   myLocationEnabled: true,

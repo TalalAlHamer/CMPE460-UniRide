@@ -27,7 +27,7 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
       final db = FirebaseFirestore.instance;
 
       // 🔹 First, mark the request as accepted
-      final requestRef = db.collection('ride_requests').doc(requestId);
+      final requestRef = db.collection('rides').doc(rideId).collection('requests').doc(requestId);
       await requestRef.update({'status': 'accepted'});
 
       // 🔹 Then, safely decrement seatsAvailable on the ride
@@ -64,7 +64,9 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
   Future<void> _declineRequest(String requestId, String rideId) async {
     try {
       await FirebaseFirestore.instance
-          .collection('ride_requests')
+          .collection('rides')
+          .doc(rideId)
+          .collection('requests')
           .doc(requestId)
           .update({'status': 'declined'});
 
@@ -117,7 +119,7 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
             )
           : StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('ride_requests')
+                  .collectionGroup('requests')
                   .where('driverId', isEqualTo: user.uid)
                   .where('status', isEqualTo: 'pending')
                   .snapshots(),
@@ -213,10 +215,12 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
                     itemBuilder: (context, index) {
                       final doc = requests[index];
                       final data = doc.data() as Map<String, dynamic>;
+                      // Get rideId from the parent document reference (since it's in a subcollection)
+                      final rideId = doc.reference.parent.parent?.id ?? '';
 
                       return _requestCard(
                         requestId: doc.id,
-                        rideId: data['rideId'] ?? '',
+                        rideId: rideId,
                         passengerId: data['passengerId'] ?? '',
                         passengerName: data['passengerName'] ?? 'UniRide User',
                         pickup: data['from'] ?? 'Unknown',

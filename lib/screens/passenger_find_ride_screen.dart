@@ -94,13 +94,6 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
     super.dispose();
   }
 
-  // ---------------- VALIDATION HELPER ----------------
-  bool _isEndAfterStart(TimeOfDay start, TimeOfDay end) {
-    final s = start.hour * 60 + start.minute;
-    final e = end.hour * 60 + end.minute;
-    return e > s;
-  }
-
   void _showMessage(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
@@ -190,6 +183,9 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                       target: initialCenter,
                       zoom: 13,
                     ),
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                    padding: const EdgeInsets.only(bottom: 100),
 
                     // ⭐ Allow dragging/panning in bottom sheet
                     gestureRecognizers: {
@@ -284,15 +280,20 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                 ),
               ),
               Expanded(
-                child: CalendarDatePicker(
-                  initialDate: DateTime.now(),
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime(2030),
-                  onDateChanged: (picked) {
-                    _dateController.text =
-                        "${picked.day}/${picked.month}/${picked.year}";
-                    Navigator.of(sheetContext).pop();
-                  },
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    colorScheme: const ColorScheme.light(primary: kUniRideTeal2),
+                  ),
+                  child: CalendarDatePicker(
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2030),
+                    onDateChanged: (picked) {
+                      _dateController.text =
+                          "${picked.day}/${picked.month}/${picked.year}";
+                      Navigator.of(sheetContext).pop();
+                    },
+                  ),
                 ),
               ),
             ],
@@ -304,9 +305,51 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
 
   // ---------------- TIME PICKER (WITH FIX) ----------------
   void _openTimePicker({required bool isStart}) {
-    final hours = List.generate(12, (i) => i + 1);
-    final minutes = List.generate(60, (i) => i.toString().padLeft(2, "0"));
-    final ampm = ["AM", "PM"];
+    List<int> availableHours = [];
+    List<int> availableMinutes = [];
+    List<int> availableAmPm = [];
+
+    // For start time, show all times
+    if (isStart) {
+      availableHours = List.generate(12, (i) => i + 1);
+      availableMinutes = List.generate(60, (i) => i);
+      availableAmPm = [0, 1]; // AM and PM
+    } else {
+      // For end time, only show times at least 1 hour after start time
+      if (startTime != null) {
+        final startMinutes = startTime!.hour * 60 + startTime!.minute;
+        final minEndMinutes = startMinutes + 60; // 1 hour minimum gap
+
+        // Generate all possible times and filter valid ones
+        for (int amPm = 0; amPm < 2; amPm++) {
+          for (int h = 1; h <= 12; h++) {
+            int hour24 = h % 12;
+            if (amPm == 1) hour24 += 12;
+
+            for (int m = 0; m < 60; m++) {
+              final totalMinutes = hour24 * 60 + m;
+              if (totalMinutes >= minEndMinutes) {
+                if (!availableAmPm.contains(amPm)) availableAmPm.add(amPm);
+                if (!availableHours.contains(h)) availableHours.add(h);
+                if (!availableMinutes.contains(m)) availableMinutes.add(m);
+              }
+            }
+          }
+        }
+
+        availableHours.sort();
+        availableMinutes.sort();
+      } else {
+        // No start time set, show all times
+        availableHours = List.generate(12, (i) => i + 1);
+        availableMinutes = List.generate(60, (i) => i);
+        availableAmPm = [0, 1];
+      }
+    }
+
+    final hours = availableHours;
+    final minutes = availableMinutes.map((m) => m.toString().padLeft(2, "0")).toList();
+    final ampm = availableAmPm.map((ap) => ap == 0 ? "AM" : "PM").toList();
 
     int selectedHour = 0;
     int selectedMinute = 0;
@@ -324,9 +367,9 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
           height: 330,
           child: Column(
             children: [
-              const Text(
-                "Select Time",
-                style: TextStyle(
+              Text(
+                isStart ? "Select Start Time" : "Select End Time",
+                style: const TextStyle(
                   color: kUniRideTeal2,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -377,30 +420,28 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                 ),
                 onPressed: () {
                   int hour = hours[selectedHour] % 12;
-                  if (selectedAmPm == 1) hour += 12;
+                  if (availableAmPm[selectedAmPm] == 1) hour += 12;
 
-                  final picked = TimeOfDay(hour: hour, minute: selectedMinute);
+                  final picked = TimeOfDay(hour: hour, minute: availableMinutes[selectedMinute]);
 
                   setState(() {
                     if (isStart) {
                       startTime = picked;
 
-                      if (endTime != null &&
-                          !_isEndAfterStart(startTime!, endTime!)) {
-                        endTime = null;
+                      // If end time exists, check if it's at least 1 hour after new start time
+                      if (endTime != null) {
+                        final startMinutes = startTime!.hour * 60 + startTime!.minute;
+                        final endMinutes = endTime!.hour * 60 + endTime!.minute;
+                        if (endMinutes < startMinutes + 60) {
+                          endTime = null;
+                        }
                       }
                     } else {
-                      if (startTime != null &&
-                          !_isEndAfterStart(startTime!, picked)) {
-                        _showMessage("End time must be after the start time.");
-                        return; // DO NOT POP SCREEN
-                      }
-
                       endTime = picked;
                     }
                   });
 
-                  Navigator.of(sheetContext).pop(); // only close bottom sheet
+                  Navigator.of(sheetContext).pop();
                 },
                 child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 8, horizontal: 20),
@@ -845,7 +886,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
       child: Opacity(
         opacity: isFull ? 0.7 : 1.0, // slightly dim when FULL
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -857,132 +898,182 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
               ),
             ],
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: kUniRideTeal2,
-                child: Text(
-                  name.isNotEmpty ? name[0] : "?",
-                  style: const TextStyle(color: Colors.white, fontSize: 20),
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-
-                        // Driver Rating
-                        FutureBuilder<double>(
-                          future: RatingService.getAverageRating(driverId),
-                          builder: (context, snap) {
-                            final r = snap.data ?? 0.0;
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: r > 0
-                                    ? Colors.orange.shade300
-                                    : Colors.grey.shade300,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.star,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    r > 0 ? r.toStringAsFixed(1) : "—",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 6),
-
-                    Text(
-                      "$pickup → $destination",
+              // Driver info row
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 24,
+                    backgroundColor: kUniRideTeal2,
+                    child: Text(
+                      name.isNotEmpty ? name[0] : "?",
                       style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 13,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
                       ),
                     ),
-
-                    const SizedBox(height: 8),
-
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // Rating badge
+                  FutureBuilder<double>(
+                    future: RatingService.getAverageRating(driverId),
+                    builder: (context, snap) {
+                      final r = snap.data ?? 0.0;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: r > 0
+                              ? Colors.orange.shade300
+                              : Colors.grey.shade300,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
-                              Icons.access_time,
-                              size: 16,
-                              color: Colors.black54,
+                              Icons.star,
+                              size: 14,
+                              color: Colors.white,
                             ),
                             const SizedBox(width: 4),
-                            Text(time, style: const TextStyle(fontSize: 13)),
+                            Text(
+                              r > 0 ? r.toStringAsFixed(1) : "—",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
-
-                        // FULL / seats available badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isFull
-                                ? Colors.red.shade400
-                                : Colors.green.shade400,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            isFull ? "FULL" : "$seatsAvailable seats",
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-
-                        Text(
-                          price,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: kUniRideTeal2,
-                          ),
-                        ),
-                      ],
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  // Seats available badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                  ],
-                ),
+                    decoration: BoxDecoration(
+                      color: isFull
+                          ? Colors.red.shade400
+                          : Colors.green.shade400,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isFull ? "FULL" : "$seatsAvailable left",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Pickup location with icon
+              Row(
+                children: [
+                  const Icon(
+                    Icons.location_on,
+                    size: 20,
+                    color: Colors.green,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      pickup,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 8),
+
+              // Destination with icon
+              Row(
+                children: [
+                  const Icon(
+                    Icons.flag,
+                    size: 20,
+                    color: Colors.red,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      destination,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Date, time, and price row with icons (no date passed here, so only time and price)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.access_time,
+                        size: 16,
+                        color: Colors.black54,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        time,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    price,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: kUniRideTeal2,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

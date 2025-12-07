@@ -68,6 +68,7 @@ class DriverRidePublishedConfirmationScreen extends StatelessWidget {
 
             const Text(
               "Ride Successfully Published!",
+              textAlign: TextAlign.center,
               style: TextStyle(
                 color: kUniRideTeal2,
                 fontSize: 26,
@@ -85,7 +86,7 @@ class DriverRidePublishedConfirmationScreen extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            /// RIDE DETAILS CARD
+            /// RIDE DETAILS CARD - Updated design matching My Rides
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -102,19 +103,90 @@ class DriverRidePublishedConfirmationScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "$from → $to",
-                    style: const TextStyle(
-                      fontSize: 18,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.bold,
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      "Active",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
 
-                  _infoRow("Date", date),
-                  _infoRow("Time", time),
-                  _infoRow("Price", "$price BD"),
+                  // From location with icon
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, color: Colors.green, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          from,
+                          style: const TextStyle(fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+
+                  // To location with icon
+                  Row(
+                    children: [
+                      const Icon(Icons.flag, color: Colors.red, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          to,
+                          style: const TextStyle(fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Date, Time, Price row
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
+                          const SizedBox(width: 6),
+                          Text(
+                            date,
+                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.access_time, size: 16, color: Colors.black54),
+                          const SizedBox(width: 6),
+                          Text(
+                            time,
+                            style: const TextStyle(fontSize: 14, color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        "BD $price",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: kUniRideTeal2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -160,7 +232,7 @@ class DriverRidePublishedConfirmationScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const MyRidesScreen(),
+                      builder: (_) => const MyRidesScreen(initialTabIndex: 1),
                     ),
                   );
                 },
@@ -185,30 +257,6 @@ class DriverRidePublishedConfirmationScreen extends StatelessWidget {
             const SizedBox(height: 30),
           ],
         ),
-      ),
-    );
-  }
-
-  /// SMALL INFO ROW
-  Widget _infoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.black54, fontSize: 15),
-          ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
       ),
     );
   }

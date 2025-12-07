@@ -151,6 +151,9 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                       target: picked ?? defaultLoc,
                       zoom: 13,
                     ),
+                    myLocationEnabled: true,
+                    myLocationButtonEnabled: true,
+                    padding: const EdgeInsets.only(bottom: 100),
                     markers: picked != null
                         ? {
                             Marker(
@@ -410,6 +413,25 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                     hour: hour,
                     minute: selectedMinuteIndex,
                   );
+
+                  // Validate: time must be at least 15 minutes from now if date is today
+                  final now = DateTime.now();
+                  final todayStr = "${now.day}/${now.month}/${now.year}";
+                  final isToday = _date.text == todayStr;
+
+                  if (isToday) {
+                    final nowMinutes = now.hour * 60 + now.minute;
+                    final pickedMinutes = picked.hour * 60 + picked.minute;
+                    
+                    if (pickedMinutes < nowMinutes + 15) {
+                      Navigator.pop(context);
+                      setState(() {
+                        _time.clear(); // Clear the time field
+                      });
+                      msg("Please choose a valid time at least 15 minutes from now");
+                      return;
+                    }
+                  }
 
                   setState(() {
                     selectedTime = picked;
@@ -801,20 +823,50 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                       Row(
                         children: [
                           Expanded(
-                            child: _field(
-                              controller: _seats,
-                              label: "Seats",
-                              icon: Icons.event_seat,
-                              keyboard: TextInputType.number,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: TextFormField(
+                                controller: _seats,
+                                keyboardType: TextInputType.number,
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) return "Required";
+                                  final val = int.tryParse(v);
+                                  if (val == null || val < 1) return "Min 1 seat";
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  prefixIcon: const Icon(Icons.event_seat, color: teal),
+                                  labelText: "Seats",
+                                  labelStyle: const TextStyle(color: Colors.black54),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: _field(
-                              controller: _price,
-                              label: "Price (BD)",
-                              icon: Icons.attach_money,
-                              keyboard: TextInputType.number,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: TextFormField(
+                                controller: _price,
+                                keyboardType: TextInputType.number,
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) return "Required";
+                                  final val = double.tryParse(v);
+                                  if (val == null || val < 1) return "Min BD 1";
+                                  return null;
+                                },
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                  prefixIcon: const Icon(Icons.attach_money, color: teal),
+                                  labelText: "Price (BD)",
+                                  labelStyle: const TextStyle(color: Colors.black54),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                ),
+                              ),
                             ),
                           ),
                         ],

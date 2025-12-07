@@ -222,7 +222,7 @@ exports.onRideRequest = functions.firestore
         token: fcmToken,
         notification: {
           title: 'New Ride Request',
-          body: `${passenger.name} wants to join your ride from ${ride.pickupLocation} to ${ride.dropoffLocation}`,
+          body: `${passenger.name} wants to join your ride from ${ride.from} to ${ride.to}`,
         },
         data: {
           type: 'ride_request',
@@ -303,7 +303,7 @@ exports.onRideAccept = functions.firestore
           token: fcmToken,
           notification: {
             title: 'Ride Request Accepted',
-            body: `${driver.name} accepted your request for the ride from ${ride.pickupLocation} to ${ride.dropoffLocation}`,
+            body: `${driver.name} accepted your request for the ride from ${ride.from} to ${ride.to}`,
           },
           data: {
             type: 'ride_accepted',

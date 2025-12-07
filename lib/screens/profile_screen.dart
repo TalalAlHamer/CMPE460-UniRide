@@ -7,6 +7,7 @@ import 'my_rides_screen.dart';
 import 'incoming_ride_requests_screen.dart';
 import 'driver_vehicles_screen.dart';
 import 'package:uniride_app/services/rating_service.dart';
+import 'package:uniride_app/services/notification_service.dart';
 
 // COLORS
 const Color kScreenTeal = Color(0xFFE0F9FB);
@@ -55,6 +56,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _logout() async {
+    // Delete FCM token before signing out
+    await NotificationService.deleteFCMToken();
     await _auth.signOut();
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/', (r) => false);
@@ -309,41 +312,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       StreamBuilder<QuerySnapshot>(
                         stream: FirebaseFirestore.instance
-                            .collection('rides')
+                            .collectionGroup('requests')
                             .where('driverId', isEqualTo: data["uid"])
+                            .where('status', isEqualTo: 'pending')
                             .snapshots(),
-                        builder: (context, ridesSnapshot) {
-                          return StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collectionGroup('requests')
-                                .where('status', isEqualTo: 'pending')
-                                .snapshots(),
-                            builder: (context, requestsSnapshot) {
-                              int totalPending = 0;
-                              
-                              if (requestsSnapshot.hasData && ridesSnapshot.hasData) {
-                                final userRideIds = ridesSnapshot.data!.docs.map((doc) => doc.id).toList();
-                                
-                                for (var requestDoc in requestsSnapshot.data!.docs) {
-                                  final rideId = requestDoc.reference.parent.parent?.id;
-                                  if (rideId != null && userRideIds.contains(rideId)) {
-                                    totalPending++;
-                                  }
-                                }
-                              }
-                              
-                              return _LinkTileWithBadge(
-                                icon: Icons.group_add,
-                                label: "Incoming Ride Requests",
-                                badgeCount: totalPending,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => const IncomingRideRequestsScreen(),
-                                  ),
-                                ),
-                              );
-                            },
+                        builder: (context, requestsSnapshot) {
+                          final pendingCount = requestsSnapshot.hasData 
+                              ? requestsSnapshot.data!.docs.length 
+                              : 0;
+                          
+                          return _LinkTileWithBadge(
+                            icon: Icons.group_add,
+                            label: "Incoming Ride Requests",
+                            badgeCount: pendingCount,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const IncomingRideRequestsScreen(),
+                              ),
+                            ),
                           );
                         },
                       ),

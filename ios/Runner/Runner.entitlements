@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>aps-environment</key>
+	<string>development</string>
+	<key>com.apple.developer.team-identifier</key>
+	<string>AW95B22RT3</string>
+	<key>keychain-access-groups</key>
+	<array>
+		<string>AW95B22RT3.com.example.unirideApp</string>
+	</array>
+</dict>
+</plist>

@@ -32,14 +32,16 @@ void main() async {
 
   // Handle notification that opened the app from terminated state
   FirebaseMessaging.instance.getInitialMessage().then((message) {
-    if (message != null) {
+    if (message != null && FirebaseAuth.instance.currentUser != null) {
       _handleNotificationNavigation(message.data);
     }
   });
 
   // Handle notification tap when app is in background
   FirebaseMessaging.onMessageOpenedApp.listen((message) {
-    _handleNotificationNavigation(message.data);
+    if (FirebaseAuth.instance.currentUser != null) {
+      _handleNotificationNavigation(message.data);
+    }
   });
 
   runApp(const UniRideApp());
@@ -158,7 +160,23 @@ class UniRideApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,
-
+      theme: ThemeData(
+        primaryColor: const Color(0xFF009DAE),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF009DAE),
+          primary: const Color(0xFF009DAE),
+        ),
+        inputDecorationTheme: InputDecorationTheme(
+          focusedBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: Color(0xFF009DAE), width: 2),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: const BorderSide(color: Colors.grey),
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+      ),
       routes: {
         '/': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),

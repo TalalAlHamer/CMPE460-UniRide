@@ -383,8 +383,9 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                 // ⭐ LIVE ACCEPTED PASSENGERS STREAM BUILDER
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('ride_requests')
-                      .where('rideId', isEqualTo: widget.rideId)
+                      .collection('rides')
+                      .doc(widget.rideId)
+                      .collection('requests')
                       .where('status', isEqualTo: 'accepted')
                       .snapshots(),
                   builder: (context, snapshot) {
@@ -505,8 +506,9 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                 // ⭐ CANCELLED REQUESTS STREAM BUILDER
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('ride_requests')
-                      .where('rideId', isEqualTo: widget.rideId)
+                      .collection('rides')
+                      .doc(widget.rideId)
+                      .collection('requests')
                       .where('status', isEqualTo: 'cancelled')
                       .snapshots(),
                   builder: (context, snapshot) {

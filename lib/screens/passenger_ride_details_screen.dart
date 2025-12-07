@@ -71,8 +71,9 @@ class _PassengerRideDetailsScreenState
 
     // prevent duplicate request
     final existingRequest = await FirebaseFirestore.instance
-        .collection('ride_requests')
-        .where('rideId', isEqualTo: widget.rideId)
+        .collection('rides')
+        .doc(widget.rideId)
+        .collection('requests')
         .where('passengerId', isEqualTo: user.uid)
         .get();
 
@@ -94,8 +95,11 @@ class _PassengerRideDetailsScreenState
       final passengerName =
           userProfile['name'] ?? user.displayName ?? 'UniRide User';
 
-      await FirebaseFirestore.instance.collection('ride_requests').add({
-        'rideId': widget.rideId,
+      await FirebaseFirestore.instance
+          .collection('rides')
+          .doc(widget.rideId)
+          .collection('requests')
+          .add({
         'passengerId': user.uid,
         'passengerName': passengerName,
         'passengerEmail': user.email ?? '',
@@ -497,8 +501,9 @@ class _PassengerRideDetailsScreenState
 
     return FutureBuilder<QuerySnapshot>(
       future: FirebaseFirestore.instance
-          .collection('ride_requests')
-          .where('rideId', isEqualTo: widget.rideId)
+          .collection('rides')
+          .doc(widget.rideId)
+          .collection('requests')
           .where('passengerId', isEqualTo: user?.uid ?? '')
           .get(),
       builder: (context, snapshot) {
