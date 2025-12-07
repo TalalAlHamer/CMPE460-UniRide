@@ -158,7 +158,26 @@ class _PassengerRideDetailsScreenState
       return;
     }
 
+    // Check if user has requested the ride (not necessarily accepted)
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      _showMessage('Please log in');
+      return;
+    }
+
     try {
+      final requestQuery = await FirebaseFirestore.instance
+          .collection('rides')
+          .doc(widget.rideId)
+          .collection('requests')
+          .where('passengerId', isEqualTo: user.uid)
+          .get();
+
+      if (requestQuery.docs.isEmpty) {
+        _showMessage('Please request this ride first to chat with the driver');
+        return;
+      }
+
       final chatRoomId = await ChatService.createOrGetChatRoom(
         otherUserId: driverId,
         otherUserName: driverName,
@@ -184,68 +203,106 @@ class _PassengerRideDetailsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final data = widget.rideData;
+    // Use StreamBuilder to show real-time ride status updates
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('rides')
+          .doc(widget.rideId)
+          .snapshots(),
+      builder: (context, snapshot) {
+        // Use live data if available, otherwise use cached data
+        final data = snapshot.hasData && snapshot.data!.exists
+            ? snapshot.data!.data() as Map<String, dynamic>
+            : widget.rideData;
 
-    final driverName = data['driverName'] ?? 'UniRide User';
-    final driverRating = (data['driverRating'] ?? 0).toDouble();
+        final rideStatus = data['status'] ?? 'active';
+        final driverName = data['driverName'] ?? 'UniRide User';
+        final driverRating = (data['driverRating'] ?? 0).toDouble();
 
-    final carMake = data['vehicleMake'] ?? "Car";
-    final carModel = data['vehicleModel'] ?? "";
-    final carColor = data['vehicleColor'] ?? "";
-    final licensePlate = data['vehicleLicensePlate'] ?? "";
+        final carMake = data['vehicleMake'] ?? "Car";
+        final carModel = data['vehicleModel'] ?? "";
+        final carColor = data['vehicleColor'] ?? "";
+        final licensePlate = data['vehicleLicensePlate'] ?? "";
 
-    final from = data['from'] ?? 'Unknown';
-    final to = data['to'] ?? 'Unknown';
-    final date = data['date'] ?? 'N/A';
-    final time = data['time'] ?? 'N/A';
-    final price = "${data['price'] ?? 0}";
-    final seats = "${data['seatsAvailable'] ?? 0}";
+        final from = data['from'] ?? 'Unknown';
+        final to = data['to'] ?? 'Unknown';
+        final date = data['date'] ?? 'N/A';
+        final time = data['time'] ?? 'N/A';
+        final price = "${data['price'] ?? 0}";
+        final seats = "${data['seatsAvailable'] ?? 0}";
 
-    final fromLat = data['fromLat'];
-    final fromLng = data['fromLng'];
-    final toLat = data['toLat'];
-    final toLng = data['toLng'];
+        final fromLat = data['fromLat'];
+        final fromLng = data['fromLng'];
+        final toLat = data['toLat'];
+        final toLng = data['toLng'];
 
-    final dynamic distanceRaw = data['distanceKm'];
-    final dynamic durationRaw = data['durationMinutes'];
+        final dynamic distanceRaw = data['distanceKm'];
+        final dynamic durationRaw = data['durationMinutes'];
 
-    final String distanceKm = distanceRaw is num
-        ? distanceRaw.toStringAsFixed(1)
-        : '?';
-    final String durationMin = durationRaw is num
-        ? durationRaw.toString()
-        : '?';
+        final String distanceKm = distanceRaw is num
+            ? distanceRaw.toStringAsFixed(1)
+            : '?';
+        final String durationMin = durationRaw is num
+            ? durationRaw.toString()
+            : '?';
 
-    LatLng? pickupPoint = (fromLat != null && fromLng != null)
-        ? LatLng(fromLat, fromLng)
-        : null;
-    LatLng? dropoffPoint = (toLat != null && toLng != null)
-        ? LatLng(toLat, toLng)
-        : null;
+        LatLng? pickupPoint = (fromLat != null && fromLng != null)
+            ? LatLng(fromLat, fromLng)
+            : null;
+        LatLng? dropoffPoint = (toLat != null && toLng != null)
+            ? LatLng(toLat, toLng)
+            : null;
 
-    return Scaffold(
-      backgroundColor: kScreenTeal,
-      appBar: AppBar(
-        backgroundColor: kScreenTeal,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(
-            Icons.arrow_back_ios_new_rounded,
-            color: kUniRideTeal2,
+        return Scaffold(
+          backgroundColor: kScreenTeal,
+          appBar: AppBar(
+            backgroundColor: kScreenTeal,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: kUniRideTeal2,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+            centerTitle: true,
+            title: const Text(
+              "Ride Details",
+              style: TextStyle(color: kUniRideTeal2, fontWeight: FontWeight.bold),
+            ),
           ),
-          onPressed: () => Navigator.pop(context),
-        ),
-        centerTitle: true,
-        title: const Text(
-          "Ride Details",
-          style: TextStyle(color: kUniRideTeal2, fontWeight: FontWeight.bold),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Show cancelled status banner
+                if (rideStatus == 'cancelled')
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red, width: 2),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cancel, color: Colors.red),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'This ride has been cancelled by the driver',
+                            style: TextStyle(
+                              color: Colors.red.shade900,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
             // DRIVER CARD
             Container(
               padding: const EdgeInsets.all(16),
@@ -419,16 +476,18 @@ class _PassengerRideDetailsScreenState
                   ? "Full"
                   : "$seats seat${(int.tryParse(seats) ?? 0) > 1 ? "s" : ""}",
             ),
-            _info("Price", "BD $price"),
+                _info("Price", "BD $price"),
 
-            const SizedBox(height: 30),
+                const SizedBox(height: 30),
 
-            _actionBtn(),
+                _actionBtn(data, rideStatus),
 
-            const SizedBox(height: 30),
-          ],
-        ),
-      ),
+                const SizedBox(height: 30),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -473,31 +532,20 @@ class _PassengerRideDetailsScreenState
     );
   }
 
-  Widget _actionBtn() {
+  Widget _actionBtn(Map<String, dynamic> rideData, String rideStatus) {
     final user = FirebaseAuth.instance.currentUser;
 
-    // driver shouldn't see a button on own ride
-    if (widget.rideData['driverId'] == user?.uid) {
+    // Hide buttons if ride is cancelled
+    if (rideStatus == 'cancelled') {
       return const SizedBox.shrink();
     }
 
-    final seatsAvailable = widget.rideData['seatsAvailable'] ?? 0;
-    if (seatsAvailable <= 0) {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: null,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.grey.shade400,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-            ),
-          ),
-          child: const Text("Ride Full", style: TextStyle(color: Colors.white)),
-        ),
-      );
+    // driver shouldn't see a button on own ride
+    if (rideData['driverId'] == user?.uid) {
+      return const SizedBox.shrink();
     }
+
+    final seatsAvailable = rideData['seatsAvailable'] ?? 0;
 
     return FutureBuilder<QuerySnapshot>(
       future: FirebaseFirestore.instance
@@ -514,22 +562,45 @@ class _PassengerRideDetailsScreenState
         final accepted = status == "accepted";
         final requestId = hasRequest ? snapshot.data!.docs.first.id : null;
 
+        // If ride is full and user hasn't requested, show "Ride Full" button only
+        if (seatsAvailable <= 0 && !hasRequest) {
+          return SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey.shade400,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text("Ride Full", style: TextStyle(color: Colors.white)),
+            ),
+          );
+        }
+
         return Column(
           children: [
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _openChatWithDriver(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF004CFF),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+            // Show chat button if user has requested the ride (any status)
+            if (hasRequest)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => _openChatWithDriver(),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: kUniRideTeal2,
+                    side: const BorderSide(color: kUniRideTeal2, width: 2),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                  label: const Text("Chat with Driver"),
                 ),
-                icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                label: const Text("Chat with Driver"),
               ),
-            ),
-            const SizedBox(height: 10),
+            if (hasRequest) const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

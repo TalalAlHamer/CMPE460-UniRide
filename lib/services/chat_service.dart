@@ -6,7 +6,7 @@ import '../models/chat_room.dart';
 class ChatService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Create or get existing chat room between two users
+  /// Create or get existing chat room between two users for a specific ride
   static Future<String> createOrGetChatRoom({
     required String otherUserId,
     required String otherUserName,
@@ -15,9 +15,11 @@ class ChatService {
     final currentUser = FirebaseAuth.instance.currentUser;
     if (currentUser == null) throw Exception('User not logged in');
 
-    // Create sorted participant IDs for consistent chat room ID
+    // Create ride-specific chat room ID to isolate message history per ride
     final participantIds = [currentUser.uid, otherUserId]..sort();
-    final chatRoomId = participantIds.join('_');
+    final chatRoomId = rideId != null 
+        ? '${participantIds.join('_')}_$rideId'
+        : participantIds.join('_');
 
     final chatRoomRef = _firestore.collection('chatRooms').doc(chatRoomId);
     final chatRoomDoc = await chatRoomRef.get();

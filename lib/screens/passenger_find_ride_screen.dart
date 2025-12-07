@@ -94,10 +94,6 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
     super.dispose();
   }
 
-  void _showMessage(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-  }
-
   // ---------------- DISTANCE CALCULATION ----------------
   double _toRad(double degree) => degree * (pi / 180);
 
@@ -653,6 +649,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                   final hasDate = _dateController.text.trim().isNotEmpty;
                   final hasStartTime = startTime != null;
                   final hasEndTime = endTime != null;
+                  final hasAnyFilter = hasLocation || hasDate || hasStartTime || hasEndTime;
                   
                   // Filter rides based on search criteria
                   final filtered = allRides.where((doc) {
@@ -665,7 +662,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                     // LOCATION FILTERING
                     bool passesLocationFilter = true;
                     if (hasLocation) {
-                      // User specified location: check if ride is from that location (exact match or within small radius)
+                      // User specified location: check if ride is from that location
                       if (lat != null && lng != null) {
                         passesLocationFilter = _isWithinRadius(
                           _pickupLocation!,
@@ -674,8 +671,8 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                       } else {
                         passesLocationFilter = false;
                       }
-                    } else if (!hasDate && !hasStartTime && !hasEndTime) {
-                      // No search params at all: default to within 10km from user
+                    } else if (!hasAnyFilter) {
+                      // No filters at all: default to within 10km from user's current location
                       if (_currentUserLocation != null && lat != null && lng != null) {
                         passesLocationFilter = _isWithinRadius(
                           _currentUserLocation!,
@@ -685,27 +682,32 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                         passesLocationFilter = false;
                       }
                     }
-                    // If has date/time but no location: show all locations (passesLocationFilter stays true)
+                    // If user has date/time but no location: show all locations
                     
                     // DATE FILTERING
                     bool passesDateFilter = true;
                     if (hasDate) {
                       // User specified date: only show rides on that exact date
                       passesDateFilter = rideDate == _dateController.text.trim();
-                    } else if (!hasLocation && !hasStartTime && !hasEndTime) {
-                      // No search params: default to today
+                    } else if (!hasAnyFilter) {
+                      // No filters at all: default to today and future dates
                       final now = DateTime.now();
-                      final todayString = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
-                      passesDateFilter = rideDate == todayString;
-                    } else if (hasLocation && !hasStartTime && !hasEndTime) {
-                      // Only location: show all rides from that location for the whole day (any date)
-                      passesDateFilter = true;
-                    } else if ((hasStartTime || hasEndTime) && !hasLocation) {
-                      // Only time specified: filter within 10km for any date today
-                      final now = DateTime.now();
-                      final todayString = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
-                      passesDateFilter = rideDate == todayString;
+                      
+                      // Parse ride date
+                      final rideDateParts = rideDate.split('/');
+                      if (rideDateParts.length == 3) {
+                        final rideDay = int.tryParse(rideDateParts[0]);
+                        final rideMonth = int.tryParse(rideDateParts[1]);
+                        final rideYear = int.tryParse(rideDateParts[2]);
+                        
+                        if (rideDay != null && rideMonth != null && rideYear != null) {
+                          final rideDateTime = DateTime(rideYear, rideMonth, rideDay);
+                          final today = DateTime(now.year, now.month, now.day);
+                          passesDateFilter = !rideDateTime.isBefore(today);
+                        }
+                      }
                     }
+                    // If has location/time but no date: show rides for any date
                     
                     // TIME FILTERING
                     bool passesTimeFilter = true;
@@ -728,6 +730,8 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                             passesTimeFilter = false;
                           }
                         }
+                      } else {
+                        passesTimeFilter = false;
                       }
                     }
                     

@@ -36,6 +36,9 @@ class _LoginScreenState extends State<LoginScreen>
   void initState() {
     super.initState();
 
+    // Check if user is already logged in
+    _checkAuthState();
+
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -50,6 +53,21 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     _animationController.forward();
+  }
+
+  Future<void> _checkAuthState() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      // User is already logged in, navigate to home
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          );
+        }
+      });
+    }
   }
 
   @override

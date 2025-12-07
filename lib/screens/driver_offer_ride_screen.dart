@@ -279,6 +279,10 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
 
   // ---------------- DATE PICKER ----------------
   void _openCalendar() {
+    // Ensure selectedDate is not in the past
+    final now = DateTime.now();
+    final initialDate = selectedDate.isBefore(now) ? now : selectedDate;
+    
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -306,9 +310,9 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                     colorScheme: const ColorScheme.light(primary: teal),
                   ),
                   child: CalendarDatePicker(
-                    initialDate: selectedDate,
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
+                    initialDate: initialDate,
+                    firstDate: now,
+                    lastDate: now.add(const Duration(days: 365)),
                     onDateChanged: (d) {
                       setState(() {
                         selectedDate = d;

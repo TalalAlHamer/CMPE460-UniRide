@@ -189,14 +189,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           final initials = name.isNotEmpty ? name[0].toUpperCase() : "U";
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            child: Column(
-              children: [
-                // HEADER CARD
-                _WhiteCard(
-                  child: Row(
-                    children: [
+          return RefreshIndicator(
+            onRefresh: () async {
+              setState(() {
+                _profileFuture = _loadProfile();
+              });
+              await _profileFuture;
+            },
+            color: kUniRideTeal2,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              child: Column(
+                children: [
+                  // HEADER CARD
+                  _WhiteCard(
+                    child: Row(
+                      children: [
                       CircleAvatar(
                         radius: 32,
                         backgroundColor: kUniRideTeal1.withOpacity(0.15),
@@ -385,7 +394,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           );
         },

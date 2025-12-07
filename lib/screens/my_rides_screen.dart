@@ -169,12 +169,19 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           return bDateTime.compareTo(aDateTime); // Reverse for most recent first
         });
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: upcomingRides.length + pastRides.length + 
-                    (upcomingRides.isNotEmpty ? 1 : 0) + 
-                    (pastRides.isNotEmpty ? 1 : 0),
-          itemBuilder: (context, index) {
+        return RefreshIndicator(
+          onRefresh: () async {
+            // The stream will automatically refresh
+            await Future.delayed(const Duration(milliseconds: 300));
+          },
+          color: kUniRideTeal2,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: upcomingRides.length + pastRides.length + 
+                      (upcomingRides.isNotEmpty ? 1 : 0) + 
+                      (pastRides.isNotEmpty ? 1 : 0),
+            itemBuilder: (context, index) {
             // Upcoming rides section header
             if (upcomingRides.isNotEmpty && index == 0) {
               return const Padding(
@@ -226,6 +233,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
               child: _rideCard(doc.id, data),
             );
           },
+          ),
         );
       },
     );
@@ -328,10 +336,18 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         
         print('Item count: $totalItemCount (${upcomingRequests.length} upcoming + ${pastRequests.length} past + $upcomingHeaderCount upcoming header + $pastHeaderCount past header)');
         
-        return ListView.builder(
-          padding: const EdgeInsets.all(16),
-          itemCount: totalItemCount,
-          itemBuilder: (context, index) {
+        return RefreshIndicator(
+          onRefresh: () async {
+            // Force rebuild to refresh stream data
+            setState(() {});
+            await Future.delayed(const Duration(milliseconds: 500));
+          },
+          color: kUniRideTeal2,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            itemCount: totalItemCount,
+            itemBuilder: (context, index) {
             print('Building item at index $index');
             // Upcoming requests section
             if (upcomingRequests.isNotEmpty && index == 0) {
@@ -354,19 +370,31 @@ class _MyRidesScreenState extends State<MyRidesScreen>
               // Get rideId from the parent document reference (since it's in a subcollection)
               final rideId = doc.reference.parent.parent?.id ?? '';
               
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _passengerRequestCard(
-                  requestId: doc.id,
-                  rideId: rideId,
-                  driverName: data['driverName'] ?? 'Unknown',
-                  status: data['status'] ?? 'pending',
-                  from: data['from'] ?? 'Unknown',
-                  to: data['to'] ?? 'Unknown',
-                  date: data['date'] ?? 'N/A',
-                  time: data['time'] ?? 'N/A',
-                  price: data['price']?.toString() ?? '0.0',
-                ),
+              return FutureBuilder<DocumentSnapshot>(
+                future: FirebaseFirestore.instance.collection('rides').doc(rideId).get(),
+                builder: (context, rideSnapshot) {
+                  String? rideStatus;
+                  if (rideSnapshot.hasData && rideSnapshot.data!.exists) {
+                    final rideData = rideSnapshot.data!.data() as Map<String, dynamic>?;
+                    rideStatus = rideData?['status'] as String?;
+                  }
+                  
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _passengerRequestCard(
+                      requestId: doc.id,
+                      rideId: rideId,
+                      driverName: data['driverName'] ?? 'Unknown',
+                      status: data['status'] ?? 'pending',
+                      from: data['from'] ?? 'Unknown',
+                      to: data['to'] ?? 'Unknown',
+                      date: data['date'] ?? 'N/A',
+                      time: data['time'] ?? 'N/A',
+                      price: data['price']?.toString() ?? '0.0',
+                      rideStatus: rideStatus,
+                    ),
+                  );
+                },
               );
             }
             
@@ -395,21 +423,34 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             // Get rideId from the parent document reference (since it's in a subcollection)
             final rideId = doc.reference.parent.parent?.id ?? '';
             
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _passengerRequestCard(
-                requestId: doc.id,
-                rideId: rideId,
-                driverName: data['driverName'] ?? 'Unknown',
-                status: data['status'] ?? 'pending',
-                from: data['from'] ?? 'Unknown',
-                to: data['to'] ?? 'Unknown',
-                date: data['date'] ?? 'N/A',
-                time: data['time'] ?? 'N/A',
-                price: data['price']?.toString() ?? '0.0',
-              ),
+            return FutureBuilder<DocumentSnapshot>(
+              future: FirebaseFirestore.instance.collection('rides').doc(rideId).get(),
+              builder: (context, rideSnapshot) {
+                String? rideStatus;
+                if (rideSnapshot.hasData && rideSnapshot.data!.exists) {
+                  final rideData = rideSnapshot.data!.data() as Map<String, dynamic>?;
+                  rideStatus = rideData?['status'] as String?;
+                }
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _passengerRequestCard(
+                    requestId: doc.id,
+                    rideId: rideId,
+                    driverName: data['driverName'] ?? 'Unknown',
+                    status: data['status'] ?? 'pending',
+                    from: data['from'] ?? 'Unknown',
+                    to: data['to'] ?? 'Unknown',
+                    date: data['date'] ?? 'N/A',
+                    time: data['time'] ?? 'N/A',
+                    price: data['price']?.toString() ?? '0.0',
+                    rideStatus: rideStatus,
+                  ),
+                );
+              },
             );
           },
+          ),
         );
       },
     );
@@ -532,25 +573,27 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                     ),
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: seatsAvailable <= 0
-                        ? Colors.red.withOpacity(0.15)
-                        : kUniRideTeal2.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    seatsAvailable <= 0
-                        ? "Full"
-                        : "$seatsAvailable seat${seatsAvailable > 1 ? "s" : ""} left",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: seatsAvailable <= 0 ? Colors.red : kUniRideTeal2,
+                // Only show seat count for active rides
+                if (displayStatus == "active")
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: seatsAvailable <= 0
+                          ? Colors.red.withOpacity(0.15)
+                          : kUniRideTeal2.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      seatsAvailable <= 0
+                          ? "Full"
+                          : "$seatsAvailable seat${seatsAvailable > 1 ? "s" : ""} left",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: seatsAvailable <= 0 ? Colors.red : kUniRideTeal2,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 12),
@@ -645,24 +688,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                 ),
               ),
             ),
-            
-            // Cancel button (only for active rides)
-            if (displayStatus == "active") ...[
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _cancelRide(rideId),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  icon: const Icon(Icons.cancel, size: 18),
-                  label: const Text("Cancel Ride"),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -679,11 +704,15 @@ class _MyRidesScreenState extends State<MyRidesScreen>
     required String date,
     required String time,
     required String price,
+    String? rideStatus,
   }) {
+    // Check if ride was cancelled by driver
+    final isRideCancelled = rideStatus == 'cancelled';
+    
     // Check if request time has passed
     final requestDateTime = _parseDateTime(date, time);
     final isExpired = requestDateTime.isBefore(DateTime.now());
-    final displayStatus = isExpired && status != "cancelled" ? "expired" : status;
+    final displayStatus = isRideCancelled ? "cancelled" : (isExpired && status != "cancelled" ? "expired" : status);
     
     final Color statusColor;
     final String statusText;
@@ -880,22 +909,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         ),
       ),
     );
-  }
-
-  Future<void> _cancelRide(String rideId) async {
-    try {
-      await FirebaseFirestore.instance.collection("rides").doc(rideId).update({
-        "status": "cancelled",
-      });
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Ride canceled.")));
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error canceling ride: $e")));
-    }
   }
 }
 

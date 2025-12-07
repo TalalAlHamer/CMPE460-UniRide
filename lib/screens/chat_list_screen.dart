@@ -49,6 +49,7 @@ class ChatListScreen extends StatelessWidget {
         backgroundColor: kScreenTeal,
         foregroundColor: kUniRideTeal2,
         elevation: 0,
+        centerTitle: true,
         automaticallyImplyLeading: false,
       ),
       body: currentUser == null

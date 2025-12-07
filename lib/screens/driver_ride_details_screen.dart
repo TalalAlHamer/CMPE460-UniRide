@@ -181,7 +181,18 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
   }
 
   // ❌ Driver Cancels Entire Ride
-  Future<void> _cancelRide() async {
+  Future<void> _cancelRide(String currentStatus) async {
+    // Prevent canceling if already cancelled
+    if (currentStatus == "cancelled") {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("This ride is already cancelled"),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -469,7 +480,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: _cancelRide,
+                                  onPressed: () => _cancelRide(rideData['status'] ?? 'active'),
                                   icon: const Icon(Icons.close, size: 20),
                                   label: const Text("Cancel Ride"),
                                   style: OutlinedButton.styleFrom(
@@ -668,7 +679,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF004CFF)),
+            icon: const Icon(Icons.chat_bubble_outline, color: kUniRideTeal2),
             onPressed: () => _openChatWithPassenger(passenger),
             tooltip: 'Chat',
           ),
