@@ -10,7 +10,6 @@ import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'passenger_ride_details_screen.dart';
-import 'widgets/bottom_nav.dart';
 import 'package:uniride_app/services/rating_service.dart';
 import 'package:uniride_app/services/secure_places_service.dart';
 
@@ -526,7 +525,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
               GestureDetector(
                 onTap: () => _openTimePicker(isStart: true),
                 child: _timeField(
-                  label: "Start Time",
+                  label: "Start Time (rides after this time)",
                   value: _formatTime(startTime),
                 ),
               ),
@@ -535,7 +534,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
               GestureDetector(
                 onTap: () => _openTimePicker(isStart: false),
                 child: _timeField(
-                  label: "End Time",
+                  label: "End Time (rides before this time)",
                   value: _formatTime(endTime),
                 ),
               ),
@@ -608,54 +607,91 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
 
                   final allRides = snapshot.data!.docs;
                   
-                  // Determine if user has entered search parameters
-                  final hasPickupParam = _pickupLocation != null && _pickupController.text.trim().isNotEmpty;
-                  final hasDateParam = _dateController.text.trim().isNotEmpty;
-                  final hasTimeParam = startTime != null || endTime != null;
-                  final hasAnySearchParam = hasPickupParam || hasDateParam || hasTimeParam;
+                  // Determine what search parameters user has entered
+                  final hasLocation = _pickupLocation != null && _pickupController.text.trim().isNotEmpty;
+                  final hasDate = _dateController.text.trim().isNotEmpty;
+                  final hasStartTime = startTime != null;
+                  final hasEndTime = endTime != null;
                   
-                  // Get today's date string for filtering
-                  final now = DateTime.now();
-                  final todayString = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
-                  
-                  List<DocumentSnapshot> filtered;
-                  
-                  if (!hasAnySearchParam && _currentUserLocation != null) {
-                    // No search params: show rides within 10km starting today
-                    filtered = allRides.where((doc) {
-                      final d = doc.data() as Map<String, dynamic>;
-                      final lat = d['fromLat'];
-                      final lng = d['fromLng'];
-                      final rideDate = d['date'] ?? '';
-                      
-                      // Filter by distance (10km from user's current location)
-                      if (lat == null || lng == null) return false;
-                      final isNearby = _isWithinRadius(
-                        _currentUserLocation!,
-                        LatLng(lat, lng),
-                      );
-                      
-                      // Filter by date (same day)
-                      final isSameDay = rideDate == todayString;
-                      
-                      return isNearby && isSameDay;
-                    }).toList();
-                  } else if (hasPickupParam) {
-                    // User has entered pickup location: filter by that location
-                    filtered = allRides.where((doc) {
-                      final d = doc.data() as Map<String, dynamic>;
-                      final lat = d['fromLat'];
-                      final lng = d['fromLng'];
-                      if (lat == null || lng == null) return true;
-                      return _isWithinRadius(
-                        _pickupLocation!,
-                        LatLng(lat, lng),
-                      );
-                    }).toList();
-                  } else {
-                    // Has date/time params but no location: show all rides
-                    filtered = allRides;
-                  }
+                  // Filter rides based on search criteria
+                  final filtered = allRides.where((doc) {
+                    final d = doc.data() as Map<String, dynamic>;
+                    final lat = d['fromLat'];
+                    final lng = d['fromLng'];
+                    final rideDate = d['date'] ?? '';
+                    final rideTime = d['time'] ?? '';
+                    
+                    // LOCATION FILTERING
+                    bool passesLocationFilter = true;
+                    if (hasLocation) {
+                      // User specified location: check if ride is from that location (exact match or within small radius)
+                      if (lat != null && lng != null) {
+                        passesLocationFilter = _isWithinRadius(
+                          _pickupLocation!,
+                          LatLng(lat, lng),
+                        );
+                      } else {
+                        passesLocationFilter = false;
+                      }
+                    } else if (!hasDate && !hasStartTime && !hasEndTime) {
+                      // No search params at all: default to within 10km from user
+                      if (_currentUserLocation != null && lat != null && lng != null) {
+                        passesLocationFilter = _isWithinRadius(
+                          _currentUserLocation!,
+                          LatLng(lat, lng),
+                        );
+                      } else {
+                        passesLocationFilter = false;
+                      }
+                    }
+                    // If has date/time but no location: show all locations (passesLocationFilter stays true)
+                    
+                    // DATE FILTERING
+                    bool passesDateFilter = true;
+                    if (hasDate) {
+                      // User specified date: only show rides on that exact date
+                      passesDateFilter = rideDate == _dateController.text.trim();
+                    } else if (!hasLocation && !hasStartTime && !hasEndTime) {
+                      // No search params: default to today
+                      final now = DateTime.now();
+                      final todayString = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
+                      passesDateFilter = rideDate == todayString;
+                    } else if (hasLocation && !hasStartTime && !hasEndTime) {
+                      // Only location: show all rides from that location for the whole day (any date)
+                      passesDateFilter = true;
+                    } else if ((hasStartTime || hasEndTime) && !hasLocation) {
+                      // Only time specified: filter within 10km for any date today
+                      final now = DateTime.now();
+                      final todayString = "${now.day.toString().padLeft(2, '0')}/${now.month.toString().padLeft(2, '0')}/${now.year}";
+                      passesDateFilter = rideDate == todayString;
+                    }
+                    
+                    // TIME FILTERING
+                    bool passesTimeFilter = true;
+                    if (hasStartTime || hasEndTime) {
+                      // Parse ride time (format: "HH:MM AM/PM")
+                      final rideTimeOfDay = _parseTimeString(rideTime);
+                      if (rideTimeOfDay != null) {
+                        final rideMinutes = rideTimeOfDay.hour * 60 + rideTimeOfDay.minute;
+                        
+                        if (hasStartTime) {
+                          final startMinutes = startTime!.hour * 60 + startTime!.minute;
+                          if (rideMinutes < startMinutes) {
+                            passesTimeFilter = false;
+                          }
+                        }
+                        
+                        if (hasEndTime && passesTimeFilter) {
+                          final endMinutes = endTime!.hour * 60 + endTime!.minute;
+                          if (rideMinutes > endMinutes) {
+                            passesTimeFilter = false;
+                          }
+                        }
+                      }
+                    }
+                    
+                    return passesLocationFilter && passesDateFilter && passesTimeFilter;
+                  }).toList();
 
                   return Column(
                     children: filtered.map((doc) {
@@ -684,7 +720,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
         ),
       ),
 
-      bottomNavigationBar: BottomNav(currentIndex: 1),
+
     );
   }
 
@@ -953,5 +989,33 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
         ),
       ),
     );
+  }
+
+  /// Helper function to parse time strings from Firestore (e.g., "10:30 AM" or "2:45 PM")
+  TimeOfDay? _parseTimeString(String timeStr) {
+    try {
+      final parts = timeStr.trim().split(' ');
+      if (parts.length != 2) return null;
+      
+      final timePart = parts[0]; // "10:30"
+      final period = parts[1].toUpperCase(); // "AM" or "PM"
+      
+      final timeParts = timePart.split(':');
+      if (timeParts.length != 2) return null;
+      
+      int hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+      
+      // Convert to 24-hour format
+      if (period == 'PM' && hour != 12) {
+        hour += 12;
+      } else if (period == 'AM' && hour == 12) {
+        hour = 0;
+      }
+      
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (e) {
+      return null;
+    }
   }
 }

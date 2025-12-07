@@ -1,12 +1,16 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'driver_offer_ride_screen.dart';
 import 'passenger_find_ride_screen.dart';
+import 'rating_screen.dart';
 import 'widgets/bottom_nav.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -22,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   LatLng? _userLocation;
   LatLng? _selectedPoint;
   bool _mapLoaded = false;
+  StreamSubscription<QuerySnapshot>? _pendingRatingsListener;
 
   // UniRide Colors
   static const Color kUniRideTeal2 = Color(0xFF009DAE);
@@ -32,6 +37,69 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserLocation(); // Auto-center on startup
+    _setupPendingRatingsListener(); // Set up real-time listener for pending ratings
+  }
+
+  @override
+  void dispose() {
+    _pendingRatingsListener?.cancel();
+    super.dispose();
+  }
+
+  // -----------------------
+  // PENDING RATINGS LISTENER
+  // -----------------------
+  void _setupPendingRatingsListener() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Listen for new pending ratings in real-time
+    _pendingRatingsListener = FirebaseFirestore.instance
+        .collection('pending_ratings')
+        .where('passengerId', isEqualTo: user.uid)
+        .where('completed', isEqualTo: false)
+        .snapshots()
+        .listen((snapshot) {
+      if (snapshot.docs.isNotEmpty && mounted) {
+        final data = snapshot.docs.first.data();
+        final docId = snapshot.docs.first.id;
+
+        // Show rating screen modal
+        _showRatingScreen(docId, data);
+      }
+    }, onError: (e) {
+      print('Error listening to pending ratings: $e');
+    });
+  }
+
+  Future<void> _showRatingScreen(String docId, Map<String, dynamic> data) async {
+    try {
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RatingScreen(
+            rideId: data['rideId'] ?? '',
+            isDriver: false,
+            usersToRate: [
+              {
+                'userId': data['driverId'] ?? '',
+                'name': data['driverName'] ?? 'Driver',
+              }
+            ],
+          ),
+        ),
+      );
+
+      // Mark rating as completed if screen was completed
+      if (result == true) {
+        await FirebaseFirestore.instance
+            .collection('pending_ratings')
+            .doc(docId)
+            .update({'completed': true});
+      }
+    } catch (e) {
+      print('Error showing rating screen: $e');
+    }
   }
 
   // -----------------------
@@ -403,7 +471,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: BottomNav(currentIndex: 0),
+      bottomNavigationBar: const BottomNav(currentIndex: 0),
     );
   }
 }

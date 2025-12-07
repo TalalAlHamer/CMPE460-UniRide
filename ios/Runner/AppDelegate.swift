@@ -14,6 +14,11 @@ import GoogleMaps   // add this import
     // Google Maps iOS API key
     GMSServices.provideAPIKey("AIzaSyDQEMseV8fWCEBiLMGal7slrGBY3ecJfO4")
 
+    // Request notification permissions for iOS
+    if #available(iOS 10.0, *) {
+      UNUserNotificationCenter.current().delegate = self as UNUserNotificationCenterDelegate
+    }
+
     GeneratedPluginRegistrant.register(with: self)
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }

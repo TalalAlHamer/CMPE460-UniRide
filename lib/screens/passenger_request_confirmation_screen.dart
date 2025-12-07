@@ -60,11 +60,12 @@ class PassengerRequestConfirmationScreen extends StatelessWidget {
         ),
       ),
 
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          children: [
-            const SizedBox(height: 10),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Column(
+            children: [
+              const SizedBox(height: 10),
 
             // SUCCESS ICON
             CircleAvatar(
@@ -259,7 +260,7 @@ class PassengerRequestConfirmationScreen extends StatelessWidget {
               ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: 40),
 
             // BACK TO HOME
             SizedBox(
@@ -322,8 +323,9 @@ class PassengerRequestConfirmationScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 28),
-          ],
+              const SizedBox(height: 28),
+            ],
+          ),
         ),
       ),
     );

@@ -19,12 +19,19 @@ dependencies:
   firebase_auth: ^6.1.2
   cloud_firestore: ^6.1.0
   cloud_functions: ^6.0.4
+  firebase_messaging: ^16.0.4
+
+  # Notifications
+  flutter_local_notifications: ^18.0.1
 
   # Location package
   geolocator: ^14.0.2
 
   # Autocomplete / HTTP requests
   http: ^1.2.0
+
+  # Date formatting
+  intl: ^0.20.2
 
   cupertino_icons: ^1.0.8
 

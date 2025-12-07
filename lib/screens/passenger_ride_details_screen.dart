@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'passenger_request_confirmation_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'chat_screen.dart';
+import '../services/chat_service.dart';
 
 class PassengerRideDetailsScreen extends StatefulWidget {
   final String rideId;
@@ -141,6 +143,39 @@ class _PassengerRideDetailsScreenState
 
   void _showMessage(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Future<void> _openChatWithDriver() async {
+    final driverId = widget.rideData['driverId'];
+    final driverName = widget.rideData['driverName'] ?? 'Driver';
+
+    if (driverId == null) {
+      _showMessage('Driver information not available');
+      return;
+    }
+
+    try {
+      final chatRoomId = await ChatService.createOrGetChatRoom(
+        otherUserId: driverId,
+        otherUserName: driverName,
+        rideId: widget.rideId,
+      );
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatRoomId: chatRoomId,
+              otherUserId: driverId,
+              otherUserName: driverName,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      _showMessage('Error opening chat: $e');
+    }
   }
 
   @override
@@ -479,14 +514,14 @@ class _PassengerRideDetailsScreenState
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: _showRideDetailsModal,
+                onPressed: () => _openChatWithDriver(),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: kUniRideTeal2,
+                  backgroundColor: const Color(0xFF004CFF),
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
-                icon: const Icon(Icons.info_outline, size: 18),
-                label: const Text("View Details"),
+                icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                label: const Text("Chat with Driver"),
               ),
             ),
             const SizedBox(height: 10),

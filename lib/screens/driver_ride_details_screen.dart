@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'rating_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'chat_screen.dart';
+import '../services/chat_service.dart';
 
 const Color kScreenTeal = Color(0xFFE0F9FB);
 const Color kUniRideTeal1 = Color(0xFF00BCC9);
@@ -32,34 +34,150 @@ class DriverRideDetailsScreen extends StatefulWidget {
 class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
   List<Map<String, dynamic>> acceptedPassengers = [];
 
-  // 🚗 End Ride → Go to Rating Screen
-  Future<void> _endRide() async {
-    if (acceptedPassengers.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("No passengers to rate")));
+  Future<void> _openChatWithPassenger(Map<String, dynamic> passenger) async {
+    final passengerId = passenger['passengerId'];
+    final passengerName = passenger['passengerName'] ?? 'Passenger';
+
+    if (passengerId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passenger information not available')),
+      );
       return;
     }
 
-    final usersToRate = acceptedPassengers
-        .map(
-          (p) => {
-            'userId': p['passengerId'],
-            'name': p['passengerName'] ?? 'Passenger',
-          },
-        )
-        .toList();
+    try {
+      final chatRoomId = await ChatService.createOrGetChatRoom(
+        otherUserId: passengerId,
+        otherUserName: passengerName,
+        rideId: widget.rideId,
+      );
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => RatingScreen(
-          rideId: widget.rideId,
-          isDriver: true,
-          usersToRate: usersToRate,
-        ),
-      ),
-    );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              chatRoomId: chatRoomId,
+              otherUserId: passengerId,
+              otherUserName: passengerName,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error opening chat: $e')),
+        );
+      }
+    }
+  }
+
+  // 🚗 End Ride → Go to Rating Screen
+  Future<void> _endRide() async {
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
+
+      // Check if ride is already completed to prevent duplicate increments
+      final rideDoc = await FirebaseFirestore.instance
+          .collection('rides')
+          .doc(widget.rideId)
+          .get();
+      
+      if (rideDoc.data()?['status'] == 'completed') {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('This ride has already been completed')),
+          );
+        }
+        return;
+      }
+
+      // Use batch to ensure all updates happen atomically
+      final batch = FirebaseFirestore.instance.batch();
+
+      // Mark ride as completed
+      final rideRef = FirebaseFirestore.instance.collection('rides').doc(widget.rideId);
+      batch.update(rideRef, {
+        'status': 'completed',
+        'completedAt': FieldValue.serverTimestamp(),
+      });
+
+      // Increment ride count for driver
+      final driverRef = FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
+      batch.update(driverRef, {'totalRides': FieldValue.increment(1)});
+
+      // Get all ride requests for this ride to update their status
+      final requestsSnapshot = await FirebaseFirestore.instance
+          .collection('rides')
+          .doc(widget.rideId)
+          .collection('requests')
+          .get();
+
+      // Update all ride requests to completed status
+      for (final requestDoc in requestsSnapshot.docs) {
+        batch.update(requestDoc.reference, {
+          'status': 'completed',
+          'completedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      
+      // Increment ride count for all accepted passengers and create pending ratings
+      for (final passenger in acceptedPassengers) {
+        final passengerId = passenger['passengerId'];
+        
+        // Increment passenger ride count
+        final userRef = FirebaseFirestore.instance.collection('users').doc(passengerId);
+        batch.update(userRef, {'totalRides': FieldValue.increment(1)});
+        
+        // Create pending rating for passenger to rate driver
+        final pendingRatingRef = FirebaseFirestore.instance.collection('pending_ratings').doc();
+        batch.set(pendingRatingRef, {
+          'passengerId': passengerId,
+          'driverId': currentUser.uid,
+          'driverName': widget.rideData['driverName'] ?? 'Driver',
+          'rideId': widget.rideId,
+          'from': widget.rideData['from'],
+          'to': widget.rideData['to'],
+          'date': widget.rideData['date'],
+          'time': widget.rideData['time'],
+          'createdAt': FieldValue.serverTimestamp(),
+          'completed': false,
+        });
+      }
+      
+      await batch.commit();
+
+      // Navigate to rating screen for driver to rate passengers
+      final usersToRate = acceptedPassengers
+          .map(
+            (p) => {
+              'userId': p['passengerId'],
+              'name': p['passengerName'] ?? 'Passenger',
+            },
+          )
+          .toList();
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RatingScreen(
+              rideId: widget.rideId,
+              isDriver: true,
+              usersToRate: usersToRate,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error ending ride: $e')),
+        );
+      }
+    }
   }
 
   // ❌ Driver Cancels Entire Ride
@@ -245,10 +363,6 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                       ),
                       const Divider(height: 20),
                       _rideInfoRow("Price per Seat", "BD $price"),
-                      _rideInfoRow(
-                        "Total Earnings",
-                        "BD ${(double.parse(price) * bookedSeats).toStringAsFixed(2)}",
-                      ),
                     ],
                   ),
                 ),
@@ -319,11 +433,58 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                       );
                     }
 
+                    final passengerCards = docs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      return _passengerCard({'requestId': doc.id, ...data});
+                    }).toList();
+
+                    // Add End Ride button after passengers if user is driver
+                    final user = FirebaseAuth.instance.currentUser;
+                    final isDriver = user?.uid == rideData['driverId'];
+                    
                     return Column(
-                      children: docs.map((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        return _passengerCard({'requestId': doc.id, ...data});
-                      }).toList(),
+                      children: [
+                        ...passengerCards,
+                        if (isDriver) ...[
+                          const SizedBox(height: 20),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: _endRide,
+                                  icon: const Icon(Icons.flag, size: 20),
+                                  label: const Text("End Ride"),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: kUniRideYellow,
+                                    foregroundColor: Colors.black87,
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    elevation: 2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _cancelRide,
+                                  icon: const Icon(Icons.close, size: 20),
+                                  label: const Text("Cancel Ride"),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.red,
+                                    side: const BorderSide(color: Colors.red),
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                     );
                   },
                 ),
@@ -389,60 +550,6 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                             data['cancellationReason'] ?? "No reason provided";
                         return _cancellationReasonCard(reason);
                       }).toList(),
-                    );
-                  },
-                ),
-
-                const SizedBox(height: 24),
-
-                Builder(
-                  builder: (context) {
-                    final user = FirebaseAuth.instance.currentUser;
-                    final isDriver = user?.uid == rideData['driverId'];
-
-                    if (!isDriver) {
-                      // If the current user is not the driver, hide driver-only actions
-                      return const SizedBox.shrink();
-                    }
-
-                    return Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: acceptedPassengers.isEmpty
-                                ? null
-                                : _endRide,
-                            icon: const Icon(Icons.flag, size: 20),
-                            label: const Text("End Ride"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: kUniRideYellow,
-                              disabledBackgroundColor: Colors.grey[300],
-                              foregroundColor: Colors.black87,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                              elevation: 2,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: _cancelRide,
-                            icon: const Icon(Icons.close, size: 20),
-                            label: const Text("Cancel Ride"),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.red,
-                              side: const BorderSide(color: Colors.red),
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
                     );
                   },
                 ),
@@ -556,6 +663,12 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                 fontSize: 12,
               ),
             ),
+          ),
+          const SizedBox(width: 8),
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline, color: Color(0xFF004CFF)),
+            onPressed: () => _openChatWithPassenger(passenger),
+            tooltip: 'Chat',
           ),
         ],
       ),

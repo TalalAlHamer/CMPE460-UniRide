@@ -12,7 +12,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'driver_ride_published_confirmation_screen.dart';
 import 'driver_create_vehicle_screen.dart';
-import 'widgets/bottom_nav.dart';
 import 'package:uniride_app/services/secure_places_service.dart';
 
 /// ------------ OFFER RIDE SCREEN ------------
@@ -540,13 +539,17 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
           .get();
       final profile = userDoc.data() ?? {};
       final phone = profile['phone'] ?? '';
+      final userName = profile['name'] ?? user.displayName ?? 'UniRide User';
 
       final totalSeats = int.tryParse(_seats.text) ?? 1;
       final priceValue = double.tryParse(_price.text) ?? 0.0;
 
+      print('Creating ride with driverId: ${user.uid}');
+      print('Driver name: $userName');
+      
       final rideData = {
         'driverId': user.uid,
-        'driverName': user.displayName ?? 'UniRide User',
+        'driverName': userName,
         'driverEmail': user.email ?? '',
         'driverPhone': phone,
         'from': _from.text,
@@ -573,7 +576,8 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
         'vehicleLicensePlate': selectedVehicleData?['licensePlate'],
       };
 
-      await FirebaseFirestore.instance.collection('rides').add(rideData);
+      final docRef = await FirebaseFirestore.instance.collection('rides').add(rideData);
+      print('Ride created with ID: ${docRef.id}');
 
       if (mounted) Navigator.pop(context);
 
@@ -882,7 +886,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 2),
+
     );
   }
 }

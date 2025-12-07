@@ -160,7 +160,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         backgroundColor: kScreenTeal,
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 3),
+      bottomNavigationBar: const BottomNav(currentIndex: 2),
       body: FutureBuilder<Map<String, dynamic>?>(
         future: _profileFuture,
         builder: (context, snapshot) {
@@ -259,36 +259,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 const SizedBox(height: 20),
 
-                // STATS
-                Row(
-                  children: [
-                    Expanded(
-                      child: _StatCard(
-                        icon: Icons.directions_car,
-                        label: "Total rides",
-                        value: "0",
-                        iconColor: kUniRideTeal2,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: FutureBuilder<String>(
-                        future: RatingService.getRatingDisplay(data["uid"]),
-                        builder: (context, snap) {
-                          return _StatCard(
-                            icon: Icons.star,
-                            label: "Rating",
-                            value: snap.data ?? "—",
-                            iconColor: kUniRideYellow,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 20),
-
                 // ACCOUNT DETAILS CARD
                 _WhiteCard(
                   child: Column(
@@ -302,6 +272,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
+                      _DetailRow(
+                        icon: Icons.directions_car,
+                        label: "Total rides",
+                        value: (data["totalRides"] ?? 0).toString(),
+                      ),
+                      FutureBuilder<String>(
+                        future: RatingService.getRatingDisplay(data["uid"]),
+                        builder: (context, snap) {
+                          return _DetailRow(
+                            icon: Icons.star,
+                            label: "Rating",
+                            value: snap.data ?? "—",
+                          );
+                        },
+                      ),
                       _DetailRow(
                         icon: Icons.phone,
                         label: "Phone",
@@ -322,15 +307,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _WhiteCard(
                   child: Column(
                     children: [
-                      _LinkTile(
-                        icon: Icons.group_add,
-                        label: "Incoming Ride Requests",
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const IncomingRideRequestsScreen(),
-                          ),
-                        ),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('rides')
+                            .where('driverId', isEqualTo: data["uid"])
+                            .snapshots(),
+                        builder: (context, ridesSnapshot) {
+                          return StreamBuilder<QuerySnapshot>(
+                            stream: FirebaseFirestore.instance
+                                .collectionGroup('requests')
+                                .where('status', isEqualTo: 'pending')
+                                .snapshots(),
+                            builder: (context, requestsSnapshot) {
+                              int totalPending = 0;
+                              
+                              if (requestsSnapshot.hasData && ridesSnapshot.hasData) {
+                                final userRideIds = ridesSnapshot.data!.docs.map((doc) => doc.id).toList();
+                                
+                                for (var requestDoc in requestsSnapshot.data!.docs) {
+                                  final rideId = requestDoc.reference.parent.parent?.id;
+                                  if (rideId != null && userRideIds.contains(rideId)) {
+                                    totalPending++;
+                                  }
+                                }
+                              }
+                              
+                              return _LinkTileWithBadge(
+                                icon: Icons.group_add,
+                                label: "Incoming Ride Requests",
+                                badgeCount: totalPending,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const IncomingRideRequestsScreen(),
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
                       ),
                       const Divider(),
                       _LinkTile(
@@ -353,12 +368,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             builder: (_) => const DriverVehiclesScreen(),
                           ),
                         ),
-                      ),
-                      const Divider(),
-                      _LinkTile(
-                        icon: Icons.chat_bubble_outline,
-                        label: "Messages",
-                        onTap: () {},
                       ),
                     ],
                   ),
@@ -525,6 +534,64 @@ class _LinkTile extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: kUniRideTeal2, size: 26),
+      title: Text(
+        label,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+      trailing: const Icon(Icons.chevron_right, color: Colors.black38),
+      onTap: onTap,
+    );
+  }
+}
+
+class _LinkTileWithBadge extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final int badgeCount;
+  final VoidCallback onTap;
+
+  const _LinkTileWithBadge({
+    required this.icon,
+    required this.label,
+    required this.badgeCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Icon(icon, color: kUniRideTeal2, size: 26),
+          if (badgeCount > 0)
+            Positioned(
+              right: -8,
+              top: -4,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                constraints: const BoxConstraints(
+                  minWidth: 18,
+                  minHeight: 18,
+                ),
+                child: Text(
+                  badgeCount > 99 ? '99+' : '$badgeCount',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
       title: Text(
         label,
         style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),

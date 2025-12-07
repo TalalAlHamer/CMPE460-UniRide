@@ -12,7 +12,7 @@ import '../lib/screens/passenger_find_ride_screen.dart';
 import '../lib/screens/driver_create_vehicle_screen.dart';
 import '../lib/screens/driver_offer_ride_screen.dart';
 import '../lib/screens/my_rides_screen.dart';
-import '../lib/screens/driver_ride_requests_screen.dart';
+import '../lib/screens/incoming_ride_requests_screen.dart';
 import '../lib/screens/driver_vehicles_screen.dart';
 import '../lib/screens/driver_ride_published_confirmation_screen.dart';
 import '../lib/screens/passenger_request_confirmation_screen.dart';
@@ -145,7 +145,7 @@ class WidgetbookApp extends StatelessWidget {
               useCases: [
                 WidgetbookUseCase(
                   name: 'Default',
-                  builder: (context) => const DriverRideRequestsScreen(),
+                  builder: (context) => const IncomingRideRequestsScreen(),
                 ),
               ],
             ),
