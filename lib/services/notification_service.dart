@@ -33,10 +33,10 @@ class NotificationService {
         AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
+          requestAlertPermission: true,
+          requestBadgePermission: true,
+          requestSoundPermission: true,
+        );
 
     const InitializationSettings initSettings = InitializationSettings(
       android: androidSettings,
@@ -78,18 +78,16 @@ class NotificationService {
         return;
       }
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({
+      // Use set with merge to ensure field is created/updated
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'fcmToken': token,
         'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       print('FCM Token saved: $token');
     } catch (e) {
       print('Error saving FCM token: $e');
-      
+
       // For iOS APNs token error, retry after delay
       if (e.toString().contains('apns-token-not-set') && Platform.isIOS) {
         print('APNs token not ready, will retry via token refresh listener');
@@ -103,13 +101,11 @@ class NotificationService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({
+      // Use set with merge to ensure field is created/updated
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'fcmToken': token,
         'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
 
       print('FCM Token updated: $token');
     } catch (e) {
@@ -124,12 +120,12 @@ class NotificationService {
     // Show local notification when app is in foreground
     const AndroidNotificationDetails androidDetails =
         AndroidNotificationDetails(
-      'uniride_channel',
-      'UniRide Notifications',
-      channelDescription: 'Notifications for ride updates and messages',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
+          'uniride_channel',
+          'UniRide Notifications',
+          channelDescription: 'Notifications for ride updates and messages',
+          importance: Importance.high,
+          priority: Priority.high,
+        );
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails();
 
@@ -216,11 +212,62 @@ class NotificationService {
           }
           break;
 
+        case 'rating_comment':
+          // User receives comment on their rating - navigate to driver or passenger ride details
+          final rideId = data['rideId'];
+          if (rideId != null) {
+            // We navigate to the ride details - the app will determine if it's driver or passenger view
+            _navigateToRideDetailsFromRating(rideId);
+          }
+          break;
+
         default:
           print('Unknown notification type: $type');
           break;
       }
     });
+  }
+
+  /// Navigate to ride details (handles both driver and passenger views)
+  static Future<void> _navigateToRideDetailsFromRating(String rideId) async {
+    try {
+      final rideDoc = await FirebaseFirestore.instance
+          .collection('rides')
+          .doc(rideId)
+          .get();
+
+      if (rideDoc.exists) {
+        final rideData = rideDoc.data()!;
+        final currentUser = FirebaseAuth.instance.currentUser;
+
+        if (currentUser == null) return;
+
+        // Check if current user is the driver or a passenger
+        if (rideData['driverId'] == currentUser.uid) {
+          // Current user is driver
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) =>
+                  DriverRideDetailsScreen(rideId: rideId, rideData: rideData),
+            ),
+          );
+        } else {
+          // Current user is passenger
+          navigatorKey.currentState?.push(
+            MaterialPageRoute(
+              builder: (_) => PassengerRideDetailsScreen(
+                rideId: rideId,
+                rideData: rideData,
+              ),
+            ),
+          );
+        }
+      } else {
+        print('Ride not found: $rideId');
+      }
+    } catch (e) {
+      print('Error navigating from rating comment: $e');
+    }
   }
 
   /// Fetch ride data and navigate to driver ride details
@@ -235,10 +282,8 @@ class NotificationService {
         final rideData = rideDoc.data()!;
         navigatorKey.currentState?.push(
           MaterialPageRoute(
-            builder: (_) => DriverRideDetailsScreen(
-              rideId: rideId,
-              rideData: rideData,
-            ),
+            builder: (_) =>
+                DriverRideDetailsScreen(rideId: rideId, rideData: rideData),
           ),
         );
       } else {
@@ -261,10 +306,8 @@ class NotificationService {
         final rideData = rideDoc.data()!;
         navigatorKey.currentState?.push(
           MaterialPageRoute(
-            builder: (_) => PassengerRideDetailsScreen(
-              rideId: rideId,
-              rideData: rideData,
-            ),
+            builder: (_) =>
+                PassengerRideDetailsScreen(rideId: rideId, rideData: rideData),
           ),
         );
       } else {
@@ -304,12 +347,9 @@ class NotificationService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .update({
-        'fcmToken': FieldValue.delete(),
-      });
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update(
+        {'fcmToken': FieldValue.delete()},
+      );
 
       await _messaging.deleteToken();
       print('FCM Token deleted');

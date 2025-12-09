@@ -60,20 +60,26 @@ class _HomeScreenState extends State<HomeScreen> {
         .where('passengerId', isEqualTo: user.uid)
         .where('completed', isEqualTo: false)
         .snapshots()
-        .listen((snapshot) {
-      if (snapshot.docs.isNotEmpty && mounted) {
-        final data = snapshot.docs.first.data();
-        final docId = snapshot.docs.first.id;
+        .listen(
+          (snapshot) {
+            if (mounted && snapshot.docs.isNotEmpty) {
+              final data = snapshot.docs.first.data();
+              final docId = snapshot.docs.first.id;
 
-        // Show rating screen modal
-        _showRatingScreen(docId, data);
-      }
-    }, onError: (e) {
-      print('Error listening to pending ratings: $e');
-    });
+              // Show rating screen modal
+              _showRatingScreen(docId, data);
+            }
+          },
+          onError: (e) {
+            print('Error listening to pending ratings: $e');
+          },
+        );
   }
 
-  Future<void> _showRatingScreen(String docId, Map<String, dynamic> data) async {
+  Future<void> _showRatingScreen(
+    String docId,
+    Map<String, dynamic> data,
+  ) async {
     try {
       final result = await Navigator.push(
         context,
@@ -85,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
               {
                 'userId': data['driverId'] ?? '',
                 'name': data['driverName'] ?? 'Driver',
-              }
+              },
             ],
           ),
         ),
@@ -110,27 +116,32 @@ class _HomeScreenState extends State<HomeScreen> {
     bool allowed = await _handleLocationPermission(context);
 
     if (!allowed) {
-      setState(() => _mapLoaded = true);
+      if (mounted) {
+        setState(() => _mapLoaded = true);
+      }
       return;
     }
 
     try {
       // Get current position with timeout
-      Position pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () async {
-          // If timeout, try with lower accuracy
-          return await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.medium,
+      Position pos =
+          await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+            timeLimit: const Duration(seconds: 10),
+          ).timeout(
+            const Duration(seconds: 10),
+            onTimeout: () async {
+              // If timeout, try with lower accuracy
+              return await Geolocator.getCurrentPosition(
+                desiredAccuracy: LocationAccuracy.medium,
+              );
+            },
           );
-        },
-      );
+
+      if (!mounted) return;
 
       _userLocation = LatLng(pos.latitude, pos.longitude);
-      
+
       print('User location loaded: ${pos.latitude}, ${pos.longitude}');
 
       setState(() {
@@ -142,17 +153,16 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_mapController != null) {
         _mapController!.animateCamera(
           CameraUpdate.newCameraPosition(
-            CameraPosition(
-              target: _center,
-              zoom: 14,
-            ),
+            CameraPosition(target: _center, zoom: 14),
           ),
         );
       }
     } catch (e) {
       print('Error getting location: $e');
-      setState(() => _mapLoaded = true);
-      _showMessage("Could not get your location. Using default location.");
+      if (mounted) {
+        setState(() => _mapLoaded = true);
+        _showMessage("Could not get your location. Using default location.");
+      }
     }
   }
 
@@ -204,28 +214,31 @@ class _HomeScreenState extends State<HomeScreen> {
       final response = await http.get(
         uri,
         headers: {
-          'User-Agent': 'uniride_app/1.0 (student project; contact: example@uniride.app)',
+          'User-Agent':
+              'uniride_app/1.0 (student project; contact: example@uniride.app)',
         },
       );
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
         final address = data['address'] as Map<String, dynamic>?;
-        
+
         if (address != null) {
-          String? place = address['road'] ?? address['neighbourhood'] ?? address['suburb'];
-          String? city = address['city'] ?? address['town'] ?? address['village'];
-          
+          String? place =
+              address['road'] ?? address['neighbourhood'] ?? address['suburb'];
+          String? city =
+              address['city'] ?? address['town'] ?? address['village'];
+
           final parts = <String>[
             if (place != null && place.isNotEmpty) place,
             if (city != null && city.isNotEmpty) city,
           ];
-          
+
           if (parts.isNotEmpty) {
             return parts.join(', ');
           }
         }
-        
+
         return data['display_name'] as String?;
       }
     } catch (e) {
@@ -247,7 +260,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    
+
     return Scaffold(
       backgroundColor: kScreenTeal,
       appBar: AppBar(
@@ -276,7 +289,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 return Stack(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.notifications, color: kUniRideTeal2),
+                      icon: const Icon(
+                        Icons.notifications,
+                        color: kUniRideTeal2,
+                      ),
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -327,190 +343,195 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const SizedBox(height: 25),
 
-              const SizedBox(height: 25),
-
-              // MAP CARD
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: SizedBox(
-                    height: 280,
-                    width: double.infinity,
-                    child: Stack(
-                      children: [
-                        //! THE MAP
-                        SizedBox(
-                          height: 280,
-                          width: double.infinity,
-                          child: !_mapLoaded
-                              ? const Center(child: CircularProgressIndicator())
-                              : GoogleMap(
-                                  onMapCreated: (controller) {
-                                    _mapController = controller;
-                                    // Move camera to user location after map is created
-                                    if (_userLocation != null) {
-                                      controller.animateCamera(
-                                        CameraUpdate.newCameraPosition(
-                                          CameraPosition(
-                                            target: _userLocation!,
-                                            zoom: 14,
+                // MAP CARD
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: SizedBox(
+                      height: 280,
+                      width: double.infinity,
+                      child: Stack(
+                        children: [
+                          //! THE MAP
+                          SizedBox(
+                            height: 280,
+                            width: double.infinity,
+                            child: !_mapLoaded
+                                ? const Center(
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : GoogleMap(
+                                    onMapCreated: (controller) {
+                                      _mapController = controller;
+                                      // Move camera to user location after map is created
+                                      if (_userLocation != null) {
+                                        controller.animateCamera(
+                                          CameraUpdate.newCameraPosition(
+                                            CameraPosition(
+                                              target: _userLocation!,
+                                              zoom: 14,
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  initialCameraPosition: CameraPosition(
-                                    target: _center,
-                                    zoom: 13,
-                                  ),
-                                  markers: const {},
-                                  zoomControlsEnabled: false,
-                                  myLocationButtonEnabled: false,
-                                  myLocationEnabled: true,
-                                ),
-                        ),
-
-                        // ⭐ CENTER MY LOCATION BUTTON
-                        Positioned(
-                          bottom: 12,
-                          right: 12,
-                          child: FloatingActionButton(
-                            mini: true,
-                            backgroundColor: Colors.white,
-                            child: const Icon(
-                              Icons.my_location,
-                              color: Colors.blue,
-                            ),
-                            onPressed: () {
-                              if (_userLocation != null && _mapController != null) {
-                                _mapController!.animateCamera(
-                                  CameraUpdate.newCameraPosition(
-                                    CameraPosition(
-                                      target: _userLocation!,
-                                      zoom: 14,
+                                        );
+                                      }
+                                    },
+                                    initialCameraPosition: CameraPosition(
+                                      target: _center,
+                                      zoom: 13,
                                     ),
+                                    markers: const {},
+                                    zoomControlsEnabled: false,
+                                    myLocationButtonEnabled: false,
+                                    myLocationEnabled: true,
                                   ),
-                                );
-                              } else {
-                                _showMessage("Location not available.");
-                              }
-                            },
+                          ),
+
+                          // ⭐ CENTER MY LOCATION BUTTON
+                          Positioned(
+                            bottom: 12,
+                            right: 12,
+                            child: FloatingActionButton(
+                              mini: true,
+                              backgroundColor: Colors.white,
+                              child: const Icon(
+                                Icons.my_location,
+                                color: Colors.blue,
+                              ),
+                              onPressed: () {
+                                if (_userLocation != null &&
+                                    _mapController != null) {
+                                  _mapController!.animateCamera(
+                                    CameraUpdate.newCameraPosition(
+                                      CameraPosition(
+                                        target: _userLocation!,
+                                        zoom: 14,
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  _showMessage("Location not available.");
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 30),
+
+                const Text(
+                  "Where do you want to go?",
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: kUniRideTeal2,
+                  ),
+                ),
+
+                const SizedBox(height: 8),
+
+                const Text(
+                  "Choose an option to get started",
+                  style: TextStyle(color: Colors.black54, fontSize: 15),
+                ),
+
+                const SizedBox(height: 32),
+
+                // OFFER RIDE BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DriverOfferRideScreen(),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kUniRideYellow,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      elevation: 5,
+                    ),
+                    child: const Text(
+                      "Offer a Ride",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 18),
+
+                // FIND RIDE BUTTON
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () async {
+                      // If user selected a point on the map, get its address
+                      String? address;
+                      if (_selectedPoint != null) {
+                        try {
+                          address = await _getAddressFromLatLng(
+                            _selectedPoint!,
+                          );
+                        } catch (e) {
+                          // Fallback to coordinates if reverse geocoding fails
+                          address =
+                              "${_selectedPoint!.latitude.toStringAsFixed(4)}, ${_selectedPoint!.longitude.toStringAsFixed(4)}";
+                        }
+                      }
+
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PassengerFindRideScreen(
+                            initialPickupLocation: _selectedPoint,
+                            initialPickupAddress: address,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              const Text(
-                "Where do you want to go?",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: kUniRideTeal2,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              const Text(
-                "Choose an option to get started",
-                style: TextStyle(color: Colors.black54, fontSize: 15),
-              ),
-
-              const SizedBox(height: 32),
-
-              // OFFER RIDE BUTTON
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const DriverOfferRideScreen(),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      side: const BorderSide(color: kUniRideTeal2, width: 2),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
                       ),
-                    );
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: kUniRideYellow,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
                     ),
-                    elevation: 5,
-                  ),
-                  child: const Text(
-                    "Offer a Ride",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // FIND RIDE BUTTON
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () async {
-                    // If user selected a point on the map, get its address
-                    String? address;
-                    if (_selectedPoint != null) {
-                      try {
-                        address = await _getAddressFromLatLng(_selectedPoint!);
-                      } catch (e) {
-                        // Fallback to coordinates if reverse geocoding fails
-                        address = "${_selectedPoint!.latitude.toStringAsFixed(4)}, ${_selectedPoint!.longitude.toStringAsFixed(4)}";
-                      }
-                    }
-                    
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PassengerFindRideScreen(
-                          initialPickupLocation: _selectedPoint,
-                          initialPickupAddress: address,
-                        ),
+                    child: const Text(
+                      "Find a Ride",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: kUniRideTeal2,
                       ),
-                    );
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: kUniRideTeal2, width: 2),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                  ),
-                  child: const Text(
-                    "Find a Ride",
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: kUniRideTeal2,
                     ),
                   ),
                 ),
-              ),
 
                 const SizedBox(height: 40),
               ],

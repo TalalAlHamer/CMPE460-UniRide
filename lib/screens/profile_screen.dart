@@ -146,6 +146,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<String> _getRaterName(String userId) async {
+    try {
+      final userDoc = await _firestore.collection('users').doc(userId).get();
+      if (userDoc.exists) {
+        return userDoc.data()?['name'] as String? ?? 'Unknown User';
+      }
+    } catch (e) {
+      print('Error fetching rater name: $e');
+    }
+    return 'Unknown User';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -206,194 +218,359 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _WhiteCard(
                     child: Row(
                       children: [
-                      CircleAvatar(
-                        radius: 32,
-                        backgroundColor: kUniRideTeal1.withOpacity(0.15),
-                        child: Text(
-                          initials,
-                          style: const TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: kUniRideTeal2,
+                        CircleAvatar(
+                          radius: 32,
+                          backgroundColor: kUniRideTeal1.withOpacity(0.15),
+                          child: Text(
+                            initials,
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontWeight: FontWeight.bold,
+                              color: kUniRideTeal2,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              email,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                color: Colors.black54,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.verified_user,
-                                  size: 16,
-                                  color: kUniRideTeal2,
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                name,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  role,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.black87,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                email,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.verified_user,
+                                    size: 16,
+                                    color: kUniRideTeal2,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    role,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => _editProfile(name, phone),
+                          icon: const Icon(Icons.edit, color: kUniRideTeal2),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ACCOUNT DETAILS CARD
+                  _WhiteCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Account details",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _DetailRow(
+                          icon: Icons.directions_car,
+                          label: "Total rides",
+                          value: (data["totalRides"] ?? 0).toString(),
+                        ),
+                        FutureBuilder<String>(
+                          future: RatingService.getRatingDisplay(data["uid"]),
+                          builder: (context, snap) {
+                            return _DetailRow(
+                              icon: Icons.star,
+                              label: "Rating",
+                              value: snap.data ?? "—",
+                            );
+                          },
+                        ),
+                        _DetailRow(
+                          icon: Icons.phone,
+                          label: "Phone",
+                          value: phone,
+                        ),
+                        _DetailRow(
+                          icon: Icons.calendar_today,
+                          label: "Member since",
+                          value: memberSince,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // RATINGS AND COMMENTS
+                  _WhiteCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 16),
+                          child: Text(
+                            'Ratings & Comments',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                        StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: RatingService.getRatingsWithComments(
+                            data["uid"],
+                          ),
+                          builder: (context, snapshot) {
+                            // Handle loading state
+                            if (snapshot.connectionState ==
+                                    ConnectionState.waiting &&
+                                !snapshot.hasData) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
                                 ),
-                              ],
-                            ),
-                          ],
+                              );
+                            }
+
+                            // Handle error state
+                            if (snapshot.hasError) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Error loading ratings',
+                                    style: TextStyle(
+                                      color: Colors.red[400],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final ratings = snapshot.data ?? [];
+
+                            if (ratings.isEmpty) {
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 24,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'When somebody rates you, it will show here',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 14,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                            }
+
+                            return ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: ratings.length,
+                              itemBuilder: (context, index) {
+                                final rating = ratings[index];
+                                final score = rating['score'] as int;
+                                final comment = rating['comment'] as String;
+                                final ratedBy = rating['ratedBy'] as String;
+                                final stars = '⭐' * score;
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (index > 0)
+                                      const Divider(height: 20, thickness: 1),
+                                    FutureBuilder<String>(
+                                      future: _getRaterName(ratedBy),
+                                      builder: (context, nameSnapshot) {
+                                        final raterName =
+                                            nameSnapshot.data ?? 'Unknown User';
+                                        return Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'From $raterName',
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                color: Colors.grey,
+                                                fontStyle: FontStyle.italic,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  stars,
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  '$score.0 star${score != 1 ? 's' : ''}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    color: Colors.black87,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            if (comment.isNotEmpty) ...[
+                                              const SizedBox(height: 8),
+                                              Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: kScreenTeal,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                                child: Text(
+                                                  comment,
+                                                  style: const TextStyle(
+                                                    color: Colors.black87,
+                                                    fontSize: 13,
+                                                    height: 1.5,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
                         ),
-                      ),
-                      IconButton(
-                        onPressed: () => _editProfile(name, phone),
-                        icon: const Icon(Icons.edit, color: kUniRideTeal2),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
-                // ACCOUNT DETAILS CARD
-                _WhiteCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        "Account details",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      _DetailRow(
-                        icon: Icons.directions_car,
-                        label: "Total rides",
-                        value: (data["totalRides"] ?? 0).toString(),
-                      ),
-                      FutureBuilder<String>(
-                        future: RatingService.getRatingDisplay(data["uid"]),
-                        builder: (context, snap) {
-                          return _DetailRow(
-                            icon: Icons.star,
-                            label: "Rating",
-                            value: snap.data ?? "—",
-                          );
-                        },
-                      ),
-                      _DetailRow(
-                        icon: Icons.phone,
-                        label: "Phone",
-                        value: phone,
-                      ),
-                      _DetailRow(
-                        icon: Icons.calendar_today,
-                        label: "Member since",
-                        value: memberSince,
-                      ),
-                    ],
-                  ),
-                ),
+                  // LINKS
+                  _WhiteCard(
+                    child: Column(
+                      children: [
+                        StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collectionGroup('requests')
+                              .where('driverId', isEqualTo: data["uid"])
+                              .where('status', isEqualTo: 'pending')
+                              .snapshots(),
+                          builder: (context, requestsSnapshot) {
+                            final pendingCount = requestsSnapshot.hasData
+                                ? requestsSnapshot.data!.docs.length
+                                : 0;
 
-                const SizedBox(height: 20),
-
-                // LINKS
-                _WhiteCard(
-                  child: Column(
-                    children: [
-                      StreamBuilder<QuerySnapshot>(
-                        stream: FirebaseFirestore.instance
-                            .collectionGroup('requests')
-                            .where('driverId', isEqualTo: data["uid"])
-                            .where('status', isEqualTo: 'pending')
-                            .snapshots(),
-                        builder: (context, requestsSnapshot) {
-                          final pendingCount = requestsSnapshot.hasData 
-                              ? requestsSnapshot.data!.docs.length 
-                              : 0;
-                          
-                          return _LinkTileWithBadge(
-                            icon: Icons.group_add,
-                            label: "Incoming Ride Requests",
-                            badgeCount: pendingCount,
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const IncomingRideRequestsScreen(),
+                            return _LinkTileWithBadge(
+                              icon: Icons.group_add,
+                              label: "Incoming Ride Requests",
+                              badgeCount: pendingCount,
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const IncomingRideRequestsScreen(),
+                                ),
                               ),
+                            );
+                          },
+                        ),
+                        const Divider(),
+                        _LinkTile(
+                          icon: Icons.directions_car,
+                          label: "My rides",
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MyRidesScreen(),
                             ),
-                          );
-                        },
-                      ),
-                      const Divider(),
-                      _LinkTile(
-                        icon: Icons.directions_car,
-                        label: "My rides",
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const MyRidesScreen(),
                           ),
                         ),
-                      ),
-                      const Divider(),
-                      _LinkTile(
-                        icon: Icons.garage,
-                        label: "Vehicles",
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const DriverVehiclesScreen(),
+                        const Divider(),
+                        _LinkTile(
+                          icon: Icons.garage,
+                          label: "Vehicles",
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const DriverVehiclesScreen(),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 30),
-
-                // LOGOUT BUTTON
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _logout,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: kUniRideTeal2,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      elevation: 5,
+                      ],
                     ),
-                    child: const Text(
-                      "Log out",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                        fontSize: 18,
+                  ),
+
+                  const SizedBox(height: 30),
+
+                  // LOGOUT BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _logout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kUniRideTeal2,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        elevation: 5,
+                      ),
+                      child: const Text(
+                        "Log out",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                          fontSize: 18,
+                        ),
                       ),
                     ),
                   ),
-                ),
                 ],
               ),
             ),
@@ -524,10 +701,7 @@ class _LinkTileWithBadge extends StatelessWidget {
                   color: Colors.red,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                constraints: const BoxConstraints(
-                  minWidth: 18,
-                  minHeight: 18,
-                ),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
                 child: Text(
                   badgeCount > 99 ? '99+' : '$badgeCount',
                   style: const TextStyle(

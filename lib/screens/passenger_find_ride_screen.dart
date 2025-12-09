@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'passenger_ride_details_screen.dart';
+import 'driver_profile_screen.dart';
 import 'package:uniride_app/services/rating_service.dart';
 import 'package:uniride_app/services/secure_places_service.dart';
 
@@ -26,7 +27,8 @@ class PassengerFindRideScreen extends StatefulWidget {
   });
 
   @override
-  State<PassengerFindRideScreen> createState() => _PassengerFindRideScreenState();
+  State<PassengerFindRideScreen> createState() =>
+      _PassengerFindRideScreenState();
 }
 
 class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
@@ -219,10 +221,9 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                       onPressed: selectedPoint == null
                           ? null
                           : () async {
-                              final address =
-                                  await SecurePlacesService.reverse(
-                                    selectedPoint!,
-                                  );
+                              final address = await SecurePlacesService.reverse(
+                                selectedPoint!,
+                              );
 
                               setState(() {
                                 _pickupController.text =
@@ -278,7 +279,9 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
               Expanded(
                 child: Theme(
                   data: Theme.of(context).copyWith(
-                    colorScheme: const ColorScheme.light(primary: kUniRideTeal2),
+                    colorScheme: const ColorScheme.light(
+                      primary: kUniRideTeal2,
+                    ),
                   ),
                   child: CalendarDatePicker(
                     initialDate: DateTime.now(),
@@ -344,7 +347,9 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
     }
 
     final hours = availableHours;
-    final minutes = availableMinutes.map((m) => m.toString().padLeft(2, "0")).toList();
+    final minutes = availableMinutes
+        .map((m) => m.toString().padLeft(2, "0"))
+        .toList();
     final ampm = availableAmPm.map((ap) => ap == 0 ? "AM" : "PM").toList();
 
     int selectedHour = 0;
@@ -418,7 +423,10 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                   int hour = hours[selectedHour] % 12;
                   if (availableAmPm[selectedAmPm] == 1) hour += 12;
 
-                  final picked = TimeOfDay(hour: hour, minute: availableMinutes[selectedMinute]);
+                  final picked = TimeOfDay(
+                    hour: hour,
+                    minute: availableMinutes[selectedMinute],
+                  );
 
                   setState(() {
                     if (isStart) {
@@ -426,7 +434,8 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
 
                       // If end time exists, check if it's at least 1 hour after new start time
                       if (endTime != null) {
-                        final startMinutes = startTime!.hour * 60 + startTime!.minute;
+                        final startMinutes =
+                            startTime!.hour * 60 + startTime!.minute;
                         final endMinutes = endTime!.hour * 60 + endTime!.minute;
                         if (endMinutes < startMinutes + 60) {
                           endTime = null;
@@ -544,7 +553,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                   ),
                 ),
               _buildLocationSuggestions(),
-              
+
               const SizedBox(height: 16),
 
               GestureDetector(
@@ -643,14 +652,17 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                   }
 
                   final allRides = snapshot.data!.docs;
-                  
+
                   // Determine what search parameters user has entered
-                  final hasLocation = _pickupLocation != null && _pickupController.text.trim().isNotEmpty;
+                  final hasLocation =
+                      _pickupLocation != null &&
+                      _pickupController.text.trim().isNotEmpty;
                   final hasDate = _dateController.text.trim().isNotEmpty;
                   final hasStartTime = startTime != null;
                   final hasEndTime = endTime != null;
-                  final hasAnyFilter = hasLocation || hasDate || hasStartTime || hasEndTime;
-                  
+                  final hasAnyFilter =
+                      hasLocation || hasDate || hasStartTime || hasEndTime;
+
                   // Filter rides based on search criteria
                   final filtered = allRides.where((doc) {
                     final d = doc.data() as Map<String, dynamic>;
@@ -658,7 +670,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                     final lng = d['fromLng'];
                     final rideDate = d['date'] ?? '';
                     final rideTime = d['time'] ?? '';
-                    
+
                     // LOCATION FILTERING
                     bool passesLocationFilter = true;
                     if (hasLocation) {
@@ -673,7 +685,9 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                       }
                     } else if (!hasAnyFilter) {
                       // No filters at all: default to within 10km from user's current location
-                      if (_currentUserLocation != null && lat != null && lng != null) {
+                      if (_currentUserLocation != null &&
+                          lat != null &&
+                          lng != null) {
                         passesLocationFilter = _isWithinRadius(
                           _currentUserLocation!,
                           LatLng(lat, lng),
@@ -683,49 +697,59 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                       }
                     }
                     // If user has date/time but no location: show all locations
-                    
+
                     // DATE FILTERING
                     bool passesDateFilter = true;
                     if (hasDate) {
                       // User specified date: only show rides on that exact date
-                      passesDateFilter = rideDate == _dateController.text.trim();
+                      passesDateFilter =
+                          rideDate == _dateController.text.trim();
                     } else if (!hasAnyFilter) {
                       // No filters at all: default to today and future dates
                       final now = DateTime.now();
-                      
+
                       // Parse ride date
                       final rideDateParts = rideDate.split('/');
                       if (rideDateParts.length == 3) {
                         final rideDay = int.tryParse(rideDateParts[0]);
                         final rideMonth = int.tryParse(rideDateParts[1]);
                         final rideYear = int.tryParse(rideDateParts[2]);
-                        
-                        if (rideDay != null && rideMonth != null && rideYear != null) {
-                          final rideDateTime = DateTime(rideYear, rideMonth, rideDay);
+
+                        if (rideDay != null &&
+                            rideMonth != null &&
+                            rideYear != null) {
+                          final rideDateTime = DateTime(
+                            rideYear,
+                            rideMonth,
+                            rideDay,
+                          );
                           final today = DateTime(now.year, now.month, now.day);
                           passesDateFilter = !rideDateTime.isBefore(today);
                         }
                       }
                     }
                     // If has location/time but no date: show rides for any date
-                    
+
                     // TIME FILTERING
                     bool passesTimeFilter = true;
                     if (hasStartTime || hasEndTime) {
                       // Parse ride time (format: "HH:MM AM/PM")
                       final rideTimeOfDay = _parseTimeString(rideTime);
                       if (rideTimeOfDay != null) {
-                        final rideMinutes = rideTimeOfDay.hour * 60 + rideTimeOfDay.minute;
-                        
+                        final rideMinutes =
+                            rideTimeOfDay.hour * 60 + rideTimeOfDay.minute;
+
                         if (hasStartTime) {
-                          final startMinutes = startTime!.hour * 60 + startTime!.minute;
+                          final startMinutes =
+                              startTime!.hour * 60 + startTime!.minute;
                           if (rideMinutes < startMinutes) {
                             passesTimeFilter = false;
                           }
                         }
-                        
+
                         if (hasEndTime && passesTimeFilter) {
-                          final endMinutes = endTime!.hour * 60 + endTime!.minute;
+                          final endMinutes =
+                              endTime!.hour * 60 + endTime!.minute;
                           if (rideMinutes > endMinutes) {
                             passesTimeFilter = false;
                           }
@@ -734,8 +758,10 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                         passesTimeFilter = false;
                       }
                     }
-                    
-                    return passesLocationFilter && passesDateFilter && passesTimeFilter;
+
+                    return passesLocationFilter &&
+                        passesDateFilter &&
+                        passesTimeFilter;
                   }).toList();
 
                   return Column(
@@ -764,8 +790,6 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
           ),
         ),
       ),
-
-
     );
   }
 
@@ -883,7 +907,8 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => PassengerRideDetailsScreen(rideId: rideId, rideData: data),
+            builder: (_) =>
+                PassengerRideDetailsScreen(rideId: rideId, rideData: data),
           ),
         );
       },
@@ -905,95 +930,108 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Driver info row
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 24,
-                    backgroundColor: kUniRideTeal2,
-                    child: Text(
-                      name.isNotEmpty ? name[0] : "?",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+              // Driver info row - CLICKABLE
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => DriverProfileScreen(
+                        driverId: driverId,
+                        driverName: name,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      name,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.black87,
+                  );
+                },
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: kUniRideTeal2,
+                      child: Text(
+                        name.isNotEmpty ? name[0] : "?",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  // Rating badge
-                  FutureBuilder<double>(
-                    future: RatingService.getAverageRating(driverId),
-                    builder: (context, snap) {
-                      final r = snap.data ?? 0.0;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.black87,
                         ),
-                        decoration: BoxDecoration(
-                          color: r > 0
-                              ? Colors.orange.shade300
-                              : Colors.grey.shade300,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              r > 0 ? r.toStringAsFixed(1) : "—",
-                              style: const TextStyle(
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    // Rating badge
+                    FutureBuilder<double>(
+                      future: RatingService.getAverageRating(driverId),
+                      builder: (context, snap) {
+                        final r = snap.data ?? 0.0;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: r > 0
+                                ? Colors.orange.shade300
+                                : Colors.grey.shade300,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 14,
                                 color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
                               ),
-                            ),
-                          ],
+                              const SizedBox(width: 4),
+                              Text(
+                                r > 0 ? r.toStringAsFixed(1) : "—",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    // Seats available badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isFull
+                            ? Colors.red.shade400
+                            : Colors.green.shade400,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        isFull ? "FULL" : "$seatsAvailable left",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
                         ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 8),
-                  // Seats available badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isFull
-                          ? Colors.red.shade400
-                          : Colors.green.shade400,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      isFull ? "FULL" : "$seatsAvailable left",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               const SizedBox(height: 12),
@@ -1001,11 +1039,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
               // Pickup location with icon
               Row(
                 children: [
-                  const Icon(
-                    Icons.location_on,
-                    size: 20,
-                    color: Colors.green,
-                  ),
+                  const Icon(Icons.location_on, size: 20, color: Colors.green),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1026,11 +1060,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
               // Destination with icon
               Row(
                 children: [
-                  const Icon(
-                    Icons.flag,
-                    size: 20,
-                    color: Colors.red,
-                  ),
+                  const Icon(Icons.flag, size: 20, color: Colors.red),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -1091,23 +1121,23 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
     try {
       final parts = timeStr.trim().split(' ');
       if (parts.length != 2) return null;
-      
+
       final timePart = parts[0]; // "10:30"
       final period = parts[1].toUpperCase(); // "AM" or "PM"
-      
+
       final timeParts = timePart.split(':');
       if (timeParts.length != 2) return null;
-      
+
       int hour = int.parse(timeParts[0]);
       final minute = int.parse(timeParts[1]);
-      
+
       // Convert to 24-hour format
       if (period == 'PM' && hour != 12) {
         hour += 12;
       } else if (period == 'AM' && hour == 12) {
         hour = 0;
       }
-      
+
       return TimeOfDay(hour: hour, minute: minute);
     } catch (e) {
       return null;

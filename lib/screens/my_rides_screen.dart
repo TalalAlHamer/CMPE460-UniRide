@@ -13,7 +13,7 @@ const Color kUniRideYellow = Color(0xFFFFC727);
 
 class MyRidesScreen extends StatefulWidget {
   final int initialTabIndex;
-  
+
   const MyRidesScreen({super.key, this.initialTabIndex = 0});
 
   @override
@@ -90,7 +90,16 @@ class _MyRidesScreenState extends State<MyRidesScreen>
       stream: FirebaseFirestore.instance
           .collection("rides")
           .where("driverId", isEqualTo: userId)
-          .where("status", whereIn: ["active", "cancelled"])
+          .where(
+            "status",
+            whereIn: [
+              "active",
+              "cancelled",
+              "completed",
+              "pending",
+              "in_progress",
+            ],
+          )
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -111,15 +120,17 @@ class _MyRidesScreenState extends State<MyRidesScreen>
 
         print('User ID: $userId');
         print('Rides found: ${snapshot.data?.docs.length ?? 0}');
-        
+
         // Debug: Print each ride's details
         if (snapshot.hasData) {
           for (var doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
-            print('Ride ${doc.id}: driverId=${data['driverId']}, status=${data['status']}');
+            print(
+              'Ride ${doc.id}: driverId=${data['driverId']}, status=${data['status']}',
+            );
           }
         }
-        
+
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Center(
             child: Text(
@@ -131,27 +142,31 @@ class _MyRidesScreenState extends State<MyRidesScreen>
 
         final rides = snapshot.data!.docs;
         final now = DateTime.now();
-        
+
         // Separate into upcoming and past rides
         final upcomingRides = <QueryDocumentSnapshot>[];
         final pastRides = <QueryDocumentSnapshot>[];
-        
+
         for (final ride in rides) {
           final data = ride.data() as Map<String, dynamic>;
           final rideDateTime = _parseDateTime(data['date'], data['time']);
-          
+
           print('Ride date: ${data['date']}, time: ${data['time']}');
-          print('Parsed datetime: $rideDateTime, now: $now, isAfter: ${rideDateTime.isAfter(now)}');
-          
+          print(
+            'Parsed datetime: $rideDateTime, now: $now, isAfter: ${rideDateTime.isAfter(now)}',
+          );
+
           if (rideDateTime.isAfter(now)) {
             upcomingRides.add(ride);
           } else {
             pastRides.add(ride);
           }
         }
-        
-        print('Upcoming rides: ${upcomingRides.length}, Past rides: ${pastRides.length}');
-        
+
+        print(
+          'Upcoming rides: ${upcomingRides.length}, Past rides: ${pastRides.length}',
+        );
+
         // Sort both lists by time (nearest first for upcoming, most recent first for past)
         upcomingRides.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
@@ -160,13 +175,15 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           final bDateTime = _parseDateTime(bData['date'], bData['time']);
           return aDateTime.compareTo(bDateTime);
         });
-        
+
         pastRides.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
           final bData = b.data() as Map<String, dynamic>;
           final aDateTime = _parseDateTime(aData['date'], aData['time']);
           final bDateTime = _parseDateTime(bData['date'], bData['time']);
-          return bDateTime.compareTo(aDateTime); // Reverse for most recent first
+          return bDateTime.compareTo(
+            aDateTime,
+          ); // Reverse for most recent first
         });
 
         return RefreshIndicator(
@@ -178,61 +195,70 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           child: ListView.builder(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16),
-            itemCount: upcomingRides.length + pastRides.length + 
-                      (upcomingRides.isNotEmpty ? 1 : 0) + 
-                      (pastRides.isNotEmpty ? 1 : 0),
+            itemCount:
+                upcomingRides.length +
+                pastRides.length +
+                (upcomingRides.isNotEmpty ? 1 : 0) +
+                (pastRides.isNotEmpty ? 1 : 0),
             itemBuilder: (context, index) {
-            // Upcoming rides section header
-            if (upcomingRides.isNotEmpty && index == 0) {
-              return const Padding(
-                padding: EdgeInsets.only(bottom: 12, top: 4),
-                child: Text(
-                  "Upcoming Rides",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: kUniRideTeal2,
+              // Upcoming rides section header
+              if (upcomingRides.isNotEmpty && index == 0) {
+                return const Padding(
+                  padding: EdgeInsets.only(bottom: 12, top: 4),
+                  child: Text(
+                    "Upcoming Rides",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: kUniRideTeal2,
+                    ),
                   ),
-                ),
-              );
-            }
-            
-            if (index > 0 && index <= upcomingRides.length) {
-              final doc = upcomingRides[index - 1];
+                );
+              }
+
+              if (index > 0 && index <= upcomingRides.length) {
+                final doc = upcomingRides[index - 1];
+                final data = doc.data() as Map<String, dynamic>;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _rideCard(doc.id, data),
+                );
+              }
+
+              // Past rides section header
+              if (pastRides.isNotEmpty &&
+                  index ==
+                      upcomingRides.length +
+                          (upcomingRides.isNotEmpty ? 1 : 0)) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: 12,
+                    top: upcomingRides.isNotEmpty ? 12 : 4,
+                  ),
+                  child: const Text(
+                    "Past Rides",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black54,
+                    ),
+                  ),
+                );
+              }
+
+              // Past rides
+              final pastIndex =
+                  index -
+                  upcomingRides.length -
+                  (upcomingRides.isNotEmpty ? 1 : 0) -
+                  1;
+              final doc = pastRides[pastIndex];
               final data = doc.data() as Map<String, dynamic>;
               return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _rideCard(doc.id, data),
               );
-            }
-            
-            // Past rides section header
-            if (pastRides.isNotEmpty && index == upcomingRides.length + (upcomingRides.isNotEmpty ? 1 : 0)) {
-              return Padding(
-                padding: EdgeInsets.only(
-                  bottom: 12,
-                  top: upcomingRides.isNotEmpty ? 12 : 4,
-                ),
-                child: const Text(
-                  "Past Rides",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black54,
-                  ),
-                ),
-              );
-            }
-            
-            // Past rides
-            final pastIndex = index - upcomingRides.length - (upcomingRides.isNotEmpty ? 1 : 0) - 1;
-            final doc = pastRides[pastIndex];
-            final data = doc.data() as Map<String, dynamic>;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: _rideCard(doc.id, data),
-            );
-          },
+            },
           ),
         );
       },
@@ -242,16 +268,27 @@ class _MyRidesScreenState extends State<MyRidesScreen>
   Widget _buildRequestedRidesTab(String userId) {
     print('========== BUILDING REQUESTED RIDES TAB ==========');
     print('User ID for query: $userId');
-    
+
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collectionGroup('requests')
           .where('passengerId', isEqualTo: userId)
-          .where('status', whereIn: ['pending', 'accepted'])
+          .where(
+            'status',
+            whereIn: [
+              'pending',
+              'accepted',
+              'completed',
+              'declined',
+              'cancelled',
+            ],
+          )
           .snapshots(),
       builder: (context, snapshot) {
-        print('StreamBuilder callback - connectionState: ${snapshot.connectionState}');
-        
+        print(
+          'StreamBuilder callback - connectionState: ${snapshot.connectionState}',
+        );
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           print('Waiting for data...');
           return const Center(
@@ -265,12 +302,14 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           print('Error: ${snapshot.error}');
         }
         print('Docs count: ${snapshot.data?.docs.length ?? 0}');
-        
+
         if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
           print('Found ${snapshot.data!.docs.length} ride requests:');
           for (var doc in snapshot.data!.docs) {
             final data = doc.data() as Map<String, dynamic>;
-            print('  - Request ${doc.id}: status=${data['status']}, from=${data['from']}, to=${data['to']}');
+            print(
+              '  - Request ${doc.id}: status=${data['status']}, from=${data['from']}, to=${data['to']}',
+            );
           }
         }
 
@@ -288,10 +327,10 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         final requests = snapshot.data!.docs;
         final now = DateTime.now();
         print('Current time: $now');
-        
+
         final upcomingRequests = <QueryDocumentSnapshot>[];
         final pastRequests = <QueryDocumentSnapshot>[];
-        
+
         for (final request in requests) {
           final data = request.data() as Map<String, dynamic>;
           final requestDateTime = _parseDateTime(data['date'], data['time']);
@@ -299,7 +338,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           print('  Date string: ${data['date']}, Time string: ${data['time']}');
           print('  Parsed DateTime: $requestDateTime');
           print('  Is after now? ${requestDateTime.isAfter(now)}');
-          
+
           if (requestDateTime.isAfter(now)) {
             print('  -> Adding to UPCOMING');
             upcomingRequests.add(request);
@@ -308,10 +347,10 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             pastRequests.add(request);
           }
         }
-        
+
         print('Total upcoming: ${upcomingRequests.length}');
         print('Total past: ${pastRequests.length}');
-        
+
         // Sort both lists by time (nearest first for upcoming, most recent first for past)
         upcomingRequests.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
@@ -320,22 +359,30 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           final bDateTime = _parseDateTime(bData['date'], bData['time']);
           return aDateTime.compareTo(bDateTime);
         });
-        
+
         pastRequests.sort((a, b) {
           final aData = a.data() as Map<String, dynamic>;
           final bData = b.data() as Map<String, dynamic>;
           final aDateTime = _parseDateTime(aData['date'], aData['time']);
           final bDateTime = _parseDateTime(bData['date'], bData['time']);
-          return bDateTime.compareTo(aDateTime); // Reverse for most recent first
+          return bDateTime.compareTo(
+            aDateTime,
+          ); // Reverse for most recent first
         });
 
         // Calculate item count: items + headers
         final upcomingHeaderCount = upcomingRequests.isNotEmpty ? 1 : 0;
         final pastHeaderCount = pastRequests.isNotEmpty ? 1 : 0;
-        final totalItemCount = upcomingRequests.length + pastRequests.length + upcomingHeaderCount + pastHeaderCount;
-        
-        print('Item count: $totalItemCount (${upcomingRequests.length} upcoming + ${pastRequests.length} past + $upcomingHeaderCount upcoming header + $pastHeaderCount past header)');
-        
+        final totalItemCount =
+            upcomingRequests.length +
+            pastRequests.length +
+            upcomingHeaderCount +
+            pastHeaderCount;
+
+        print(
+          'Item count: $totalItemCount (${upcomingRequests.length} upcoming + ${pastRequests.length} past + $upcomingHeaderCount upcoming header + $pastHeaderCount past header)',
+        );
+
         return RefreshIndicator(
           onRefresh: () async {
             // Force rebuild to refresh stream data
@@ -348,37 +395,105 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             padding: const EdgeInsets.all(16),
             itemCount: totalItemCount,
             itemBuilder: (context, index) {
-            print('Building item at index $index');
-            // Upcoming requests section
-            if (upcomingRequests.isNotEmpty && index == 0) {
-              return const Padding(
-                padding: EdgeInsets.only(bottom: 12, top: 4),
-                child: Text(
-                  "Upcoming Requests",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: kUniRideTeal2,
+              print('Building item at index $index');
+              // Upcoming requests section
+              if (upcomingRequests.isNotEmpty && index == 0) {
+                return const Padding(
+                  padding: EdgeInsets.only(bottom: 12, top: 4),
+                  child: Text(
+                    "Upcoming Requests",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: kUniRideTeal2,
+                    ),
                   ),
-                ),
-              );
-            }
-            
-            if (index > 0 && index <= upcomingRequests.length) {
-              final doc = upcomingRequests[index - 1];
+                );
+              }
+
+              if (index > 0 && index <= upcomingRequests.length) {
+                final doc = upcomingRequests[index - 1];
+                final data = doc.data() as Map<String, dynamic>;
+                // Get rideId from the parent document reference (since it's in a subcollection)
+                final rideId = doc.reference.parent.parent?.id ?? '';
+
+                return FutureBuilder<DocumentSnapshot>(
+                  future: FirebaseFirestore.instance
+                      .collection('rides')
+                      .doc(rideId)
+                      .get(),
+                  builder: (context, rideSnapshot) {
+                    String? rideStatus;
+                    if (rideSnapshot.hasData && rideSnapshot.data!.exists) {
+                      final rideData =
+                          rideSnapshot.data!.data() as Map<String, dynamic>?;
+                      rideStatus = rideData?['status'] as String?;
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _passengerRequestCard(
+                        requestId: doc.id,
+                        rideId: rideId,
+                        driverName: data['driverName'] ?? 'Unknown',
+                        status: data['status'] ?? 'pending',
+                        from: data['from'] ?? 'Unknown',
+                        to: data['to'] ?? 'Unknown',
+                        date: data['date'] ?? 'N/A',
+                        time: data['time'] ?? 'N/A',
+                        price: data['price']?.toString() ?? '0.0',
+                        rideStatus: rideStatus,
+                      ),
+                    );
+                  },
+                );
+              }
+
+              // Past requests section header
+              if (pastRequests.isNotEmpty &&
+                  index ==
+                      upcomingRequests.length +
+                          (upcomingRequests.isNotEmpty ? 1 : 0)) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: 12,
+                    top: upcomingRequests.isNotEmpty ? 12 : 4,
+                  ),
+                  child: const Text(
+                    "Past Requests",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black54,
+                    ),
+                  ),
+                );
+              }
+
+              // Past requests
+              final pastIndex =
+                  index -
+                  upcomingRequests.length -
+                  (upcomingRequests.isNotEmpty ? 1 : 0) -
+                  1;
+              final doc = pastRequests[pastIndex];
               final data = doc.data() as Map<String, dynamic>;
               // Get rideId from the parent document reference (since it's in a subcollection)
               final rideId = doc.reference.parent.parent?.id ?? '';
-              
+
               return FutureBuilder<DocumentSnapshot>(
-                future: FirebaseFirestore.instance.collection('rides').doc(rideId).get(),
+                future: FirebaseFirestore.instance
+                    .collection('rides')
+                    .doc(rideId)
+                    .get(),
                 builder: (context, rideSnapshot) {
                   String? rideStatus;
                   if (rideSnapshot.hasData && rideSnapshot.data!.exists) {
-                    final rideData = rideSnapshot.data!.data() as Map<String, dynamic>?;
+                    final rideData =
+                        rideSnapshot.data!.data() as Map<String, dynamic>?;
                     rideStatus = rideData?['status'] as String?;
                   }
-                  
+
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: _passengerRequestCard(
@@ -396,60 +511,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                   );
                 },
               );
-            }
-            
-            // Past requests section header
-            if (pastRequests.isNotEmpty && index == upcomingRequests.length + (upcomingRequests.isNotEmpty ? 1 : 0)) {
-              return Padding(
-                padding: EdgeInsets.only(
-                  bottom: 12,
-                  top: upcomingRequests.isNotEmpty ? 12 : 4,
-                ),
-                child: const Text(
-                  "Past Requests",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black54,
-                  ),
-                ),
-              );
-            }
-            
-            // Past requests
-            final pastIndex = index - upcomingRequests.length - (upcomingRequests.isNotEmpty ? 1 : 0) - 1;
-            final doc = pastRequests[pastIndex];
-            final data = doc.data() as Map<String, dynamic>;
-            // Get rideId from the parent document reference (since it's in a subcollection)
-            final rideId = doc.reference.parent.parent?.id ?? '';
-            
-            return FutureBuilder<DocumentSnapshot>(
-              future: FirebaseFirestore.instance.collection('rides').doc(rideId).get(),
-              builder: (context, rideSnapshot) {
-                String? rideStatus;
-                if (rideSnapshot.hasData && rideSnapshot.data!.exists) {
-                  final rideData = rideSnapshot.data!.data() as Map<String, dynamic>?;
-                  rideStatus = rideData?['status'] as String?;
-                }
-                
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _passengerRequestCard(
-                    requestId: doc.id,
-                    rideId: rideId,
-                    driverName: data['driverName'] ?? 'Unknown',
-                    status: data['status'] ?? 'pending',
-                    from: data['from'] ?? 'Unknown',
-                    to: data['to'] ?? 'Unknown',
-                    date: data['date'] ?? 'N/A',
-                    time: data['time'] ?? 'N/A',
-                    price: data['price']?.toString() ?? '0.0',
-                    rideStatus: rideStatus,
-                  ),
-                );
-              },
-            );
-          },
+            },
           ),
         );
       },
@@ -462,24 +524,27 @@ class _MyRidesScreenState extends State<MyRidesScreen>
       // Date format: "DD/MM/YYYY", Time format: "HH:mm AM/PM"
       final dateParts = date.split('/');
       if (dateParts.length != 3) return DateTime.now();
-      
+
       // Parse time with AM/PM
       final timeUpper = time.toUpperCase();
       final isPM = timeUpper.contains('PM');
-      final timeOnly = timeUpper.replaceAll('AM', '').replaceAll('PM', '').trim();
+      final timeOnly = timeUpper
+          .replaceAll('AM', '')
+          .replaceAll('PM', '')
+          .trim();
       final timeParts = timeOnly.split(':');
-      
+
       if (timeParts.length >= 2) {
         int hour = int.parse(timeParts[0]);
         final minute = int.parse(timeParts[1]);
-        
+
         // Convert to 24-hour format
         if (isPM && hour != 12) {
           hour += 12;
         } else if (!isPM && hour == 12) {
           hour = 0;
         }
-        
+
         return DateTime(
           int.parse(dateParts[2]), // year
           int.parse(dateParts[1]), // month
@@ -502,12 +567,12 @@ class _MyRidesScreenState extends State<MyRidesScreen>
     final price = data["price"]?.toString() ?? "0.0";
     final seatsAvailable = data["seatsAvailable"] ?? 0;
     final status = data["status"] ?? "active";
-    
+
     // Check if ride time has passed
     final rideDateTime = _parseDateTime(date, time);
     final isExpired = rideDateTime.isBefore(DateTime.now());
     final displayStatus = isExpired ? "expired" : status;
-    
+
     final Color statusColor;
     final String statusText;
     switch (displayStatus) {
@@ -559,7 +624,10 @@ class _MyRidesScreenState extends State<MyRidesScreen>
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
@@ -576,7 +644,10 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                 // Only show seat count for active rides
                 if (displayStatus == "active")
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: seatsAvailable <= 0
                           ? Colors.red.withOpacity(0.15)
@@ -634,21 +705,35 @@ class _MyRidesScreenState extends State<MyRidesScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       date,
-                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
                     ),
                   ],
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.access_time, size: 16, color: Colors.black54),
+                    const Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       time,
-                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
                     ),
                   ],
                 ),
@@ -708,12 +793,14 @@ class _MyRidesScreenState extends State<MyRidesScreen>
   }) {
     // Check if ride was cancelled by driver
     final isRideCancelled = rideStatus == 'cancelled';
-    
+
     // Check if request time has passed
     final requestDateTime = _parseDateTime(date, time);
     final isExpired = requestDateTime.isBefore(DateTime.now());
-    final displayStatus = isRideCancelled ? "cancelled" : (isExpired && status != "cancelled" ? "expired" : status);
-    
+    final displayStatus = isRideCancelled
+        ? "cancelled"
+        : (isExpired && status != "cancelled" ? "expired" : status);
+
     final Color statusColor;
     final String statusText;
     switch (displayStatus) {
@@ -745,7 +832,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             .collection('rides')
             .doc(rideId)
             .get();
-        
+
         if (rideDoc.exists && mounted) {
           Navigator.push(
             context,
@@ -789,7 +876,10 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: statusColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(12),
@@ -843,21 +933,35 @@ class _MyRidesScreenState extends State<MyRidesScreen>
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.calendar_today, size: 16, color: Colors.black54),
+                    const Icon(
+                      Icons.calendar_today,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       date,
-                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
                     ),
                   ],
                 ),
                 Row(
                   children: [
-                    const Icon(Icons.access_time, size: 16, color: Colors.black54),
+                    const Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: Colors.black54,
+                    ),
                     const SizedBox(width: 6),
                     Text(
                       time,
-                      style: const TextStyle(fontSize: 14, color: Colors.black87),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                      ),
                     ),
                   ],
                 ),
@@ -883,7 +987,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                       .collection('rides')
                       .doc(rideId)
                       .get();
-                  
+
                   if (rideDoc.exists && mounted) {
                     Navigator.push(
                       context,

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'passenger_request_confirmation_screen.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'chat_screen.dart';
+import 'driver_profile_screen.dart';
 import '../services/chat_service.dart';
 
 class PassengerRideDetailsScreen extends StatefulWidget {
@@ -62,6 +63,13 @@ class _PassengerRideDetailsScreenState
       return;
     }
 
+    // prevent requesting if ride is not active
+    final rideStatus = widget.rideData['status'] ?? 'active';
+    if (rideStatus != 'active') {
+      _showMessage("This ride is no longer available");
+      return;
+    }
+
     // prevent requesting if full
     final seatsAvailable = widget.rideData['seatsAvailable'] ?? 0;
     if (seatsAvailable <= 0) {
@@ -100,22 +108,22 @@ class _PassengerRideDetailsScreenState
           .doc(widget.rideId)
           .collection('requests')
           .add({
-        'passengerId': user.uid,
-        'passengerName': passengerName,
-        'passengerEmail': user.email ?? '',
-        'passengerPhone': passengerPhone,
-        'driverId': widget.rideData['driverId'],
-        'driverName': widget.rideData['driverName'],
-        'driverPhone': widget.rideData['driverPhone'] ?? '',
-        'from': widget.rideData['from'],
-        'to': widget.rideData['to'],
-        'date': widget.rideData['date'],
-        'time': widget.rideData['time'],
-        'price': widget.rideData['price'],
-        'seats': 1,
-        'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+            'passengerId': user.uid,
+            'passengerName': passengerName,
+            'passengerEmail': user.email ?? '',
+            'passengerPhone': passengerPhone,
+            'driverId': widget.rideData['driverId'],
+            'driverName': widget.rideData['driverName'],
+            'driverPhone': widget.rideData['driverPhone'] ?? '',
+            'from': widget.rideData['from'],
+            'to': widget.rideData['to'],
+            'date': widget.rideData['date'],
+            'time': widget.rideData['time'],
+            'price': widget.rideData['price'],
+            'seats': 1,
+            'status': 'pending',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
 
       setState(() => _isRequesting = false);
 
@@ -175,6 +183,13 @@ class _PassengerRideDetailsScreenState
 
       if (requestQuery.docs.isEmpty) {
         _showMessage('Please request this ride first to chat with the driver');
+        return;
+      }
+
+      // Check if request is declined - prevent chat on declined requests
+      final requestStatus = requestQuery.docs.first.data()['status'] ?? '';
+      if (requestStatus == 'declined') {
+        _showMessage('Cannot chat: Your request was declined');
         return;
       }
 
@@ -268,7 +283,10 @@ class _PassengerRideDetailsScreenState
             centerTitle: true,
             title: const Text(
               "Ride Details",
-              style: TextStyle(color: kUniRideTeal2, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: kUniRideTeal2,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           body: SingleChildScrollView(
@@ -303,179 +321,196 @@ class _PassengerRideDetailsScreenState
                       ],
                     ),
                   ),
-            // DRIVER CARD
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: _cardDecor(),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: kUniRideTeal2.withOpacity(0.15),
-                    child: Text(
-                      driverName[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: kUniRideTeal2,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 20,
+                // DRIVER CARD
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => DriverProfileScreen(
+                          driverId: widget.rideData['driverId'],
+                          driverName: driverName,
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    );
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: _cardDecor(),
+                    child: Row(
                       children: [
-                        Text(
-                          driverName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
+                        CircleAvatar(
+                          radius: 26,
+                          backgroundColor: kUniRideTeal2.withOpacity(0.15),
+                          child: Text(
+                            driverName[0].toUpperCase(),
+                            style: const TextStyle(
+                              color: kUniRideTeal2,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 20,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Row(
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                driverName,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.star,
+                                    size: 14,
+                                    color: Colors.amber,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    driverRating > 0
+                                        ? driverRating.toStringAsFixed(1)
+                                        : "No rating",
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // CAR CARD
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: _cardDecor(),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.directions_car,
+                        size: 30,
+                        color: kUniRideTeal2,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
-                              Icons.star,
-                              size: 14,
-                              color: Colors.amber,
-                            ),
-                            const SizedBox(width: 4),
                             Text(
-                              driverRating > 0
-                                  ? driverRating.toStringAsFixed(1)
-                                  : "No rating",
+                              "$carMake $carModel - $carColor",
                               style: const TextStyle(
-                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "License: $licensePlate",
+                              style: const TextStyle(
                                 color: Colors.black54,
+                                fontSize: 13,
                               ),
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
 
-            const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-            // CAR CARD
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: _cardDecor(),
-              child: Row(
-                children: [
-                  Icon(Icons.directions_car, size: 30, color: kUniRideTeal2),
-                  const SizedBox(width: 16),
-                  Expanded(
+                // ROUTE MAP
+                if (pickupPoint != null && dropoffPoint != null)
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: _cardDecor(),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          "$carMake $carModel - $carColor",
-                          style: const TextStyle(
+                        const Text(
+                          "Route Overview",
+                          style: TextStyle(
+                            color: kUniRideTeal2,
                             fontWeight: FontWeight.w600,
-                            fontSize: 15,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "License: $licensePlate",
-                          style: const TextStyle(
-                            color: Colors.black54,
-                            fontSize: 13,
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          height: 200,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: GoogleMap(
+                              onMapCreated: (c) {
+                                _mapController = c;
+                                _fitMap(pickupPoint, dropoffPoint);
+                              },
+                              initialCameraPosition: CameraPosition(
+                                target: pickupPoint,
+                                zoom: 12,
+                              ),
+                              markers: {
+                                Marker(
+                                  markerId: const MarkerId("from"),
+                                  position: pickupPoint,
+                                ),
+                                Marker(
+                                  markerId: const MarkerId("to"),
+                                  position: dropoffPoint,
+                                ),
+                              },
+                              polylines: {
+                                Polyline(
+                                  polylineId: const PolylineId("route"),
+                                  points: [pickupPoint, dropoffPoint],
+                                  color: kUniRideTeal2,
+                                  width: 4,
+                                ),
+                              },
+                              zoomControlsEnabled: false,
+                            ),
                           ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          "$distanceKm km  •  ~$durationMin mins",
+                          style: const TextStyle(color: Colors.black54),
                         ),
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
 
-            const SizedBox(height: 20),
+                const SizedBox(height: 25),
 
-            // ROUTE MAP
-            if (pickupPoint != null && dropoffPoint != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: _cardDecor(),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Route Overview",
-                      style: TextStyle(
-                        color: kUniRideTeal2,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 200,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: GoogleMap(
-                          onMapCreated: (c) {
-                            _mapController = c;
-                            _fitMap(pickupPoint, dropoffPoint);
-                          },
-                          initialCameraPosition: CameraPosition(
-                            target: pickupPoint,
-                            zoom: 12,
-                          ),
-                          markers: {
-                            Marker(
-                              markerId: const MarkerId("from"),
-                              position: pickupPoint,
-                            ),
-                            Marker(
-                              markerId: const MarkerId("to"),
-                              position: dropoffPoint,
-                            ),
-                          },
-                          polylines: {
-                            Polyline(
-                              polylineId: const PolylineId("route"),
-                              points: [pickupPoint, dropoffPoint],
-                              color: kUniRideTeal2,
-                              width: 4,
-                            ),
-                          },
-                          zoomControlsEnabled: false,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      "$distanceKm km  •  ~$durationMin mins",
-                      style: const TextStyle(color: Colors.black54),
-                    ),
-                  ],
+                const Text(
+                  "Ride Information",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
-              ),
+                const SizedBox(height: 12),
 
-            const SizedBox(height: 25),
-
-            const Text(
-              "Ride Information",
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-
-            _info("Pickup", from),
-            _info("Destination", to),
-            _info("Date", date),
-            _info("Time", time),
-            _info(
-              "Seats Available",
-              int.tryParse(seats) == 0
-                  ? "Full"
-                  : "$seats seat${(int.tryParse(seats) ?? 0) > 1 ? "s" : ""}",
-            ),
+                _info("Pickup", from),
+                _info("Destination", to),
+                _info("Date", date),
+                _info("Time", time),
+                _info(
+                  "Seats Available",
+                  int.tryParse(seats) == 0
+                      ? "Full"
+                      : "$seats seat${(int.tryParse(seats) ?? 0) > 1 ? "s" : ""}",
+                ),
                 _info("Price", "BD $price"),
 
                 const SizedBox(height: 30),
@@ -575,7 +610,10 @@ class _PassengerRideDetailsScreenState
                   borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: const Text("Ride Full", style: TextStyle(color: Colors.white)),
+              child: const Text(
+                "Ride Full",
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           );
         }
@@ -663,7 +701,9 @@ class _PassengerRideDetailsScreenState
 
           try {
             final requestDoc = await FirebaseFirestore.instance
-                .collection('ride_requests')
+                .collection('rides')
+                .doc(widget.rideId)
+                .collection('requests')
                 .doc(requestId)
                 .get();
 
@@ -673,7 +713,9 @@ class _PassengerRideDetailsScreenState
 
             // Update ride request status
             await FirebaseFirestore.instance
-                .collection('ride_requests')
+                .collection('rides')
+                .doc(rideId)
+                .collection('requests')
                 .doc(requestId)
                 .update({
                   'status': 'cancelled',

@@ -282,7 +282,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
     // Ensure selectedDate is not in the past
     final now = DateTime.now();
     final initialDate = selectedDate.isBefore(now) ? now : selectedDate;
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -426,13 +426,15 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                   if (isToday) {
                     final nowMinutes = now.hour * 60 + now.minute;
                     final pickedMinutes = picked.hour * 60 + picked.minute;
-                    
+
                     if (pickedMinutes < nowMinutes + 15) {
                       Navigator.pop(context);
                       setState(() {
                         _time.clear(); // Clear the time field
                       });
-                      msg("Please choose a valid time at least 15 minutes from now");
+                      msg(
+                        "Please choose a valid time at least 15 minutes from now",
+                      );
                       return;
                     }
                   }
@@ -572,7 +574,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
 
       print('Creating ride with driverId: ${user.uid}');
       print('Driver name: $userName');
-      
+
       final rideData = {
         'driverId': user.uid,
         'driverName': userName,
@@ -602,7 +604,9 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
         'vehicleLicensePlate': selectedVehicleData?['licensePlate'],
       };
 
-      final docRef = await FirebaseFirestore.instance.collection('rides').add(rideData);
+      final docRef = await FirebaseFirestore.instance
+          .collection('rides')
+          .add(rideData);
       print('Ride created with ID: ${docRef.id}');
 
       if (mounted) Navigator.pop(context);
@@ -835,16 +839,25 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                                 validator: (v) {
                                   if (v == null || v.isEmpty) return "Required";
                                   final val = int.tryParse(v);
-                                  if (val == null || val < 1) return "Min 1 seat";
+                                  if (val == null || val < 1)
+                                    return "Min 1 seat";
+                                  if (val > 10) return "Max 10 seats";
                                   return null;
                                 },
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: Colors.white,
-                                  prefixIcon: const Icon(Icons.event_seat, color: teal),
+                                  prefixIcon: const Icon(
+                                    Icons.event_seat,
+                                    color: teal,
+                                  ),
                                   labelText: "Seats",
-                                  labelStyle: const TextStyle(color: Colors.black54),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                  labelStyle: const TextStyle(
+                                    color: Colors.black54,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
                                 ),
                               ),
                             ),
@@ -860,15 +873,23 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                                   if (v == null || v.isEmpty) return "Required";
                                   final val = double.tryParse(v);
                                   if (val == null || val < 1) return "Min BD 1";
+                                  if (val > 500) return "Max BD 500";
                                   return null;
                                 },
                                 decoration: InputDecoration(
                                   filled: true,
                                   fillColor: Colors.white,
-                                  prefixIcon: const Icon(Icons.attach_money, color: teal),
+                                  prefixIcon: const Icon(
+                                    Icons.attach_money,
+                                    color: teal,
+                                  ),
                                   labelText: "Price (BD)",
-                                  labelStyle: const TextStyle(color: Colors.black54),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+                                  labelStyle: const TextStyle(
+                                    color: Colors.black54,
+                                  ),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
                                 ),
                               ),
                             ),
@@ -942,7 +963,6 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
           ),
         ),
       ),
-
     );
   }
 }

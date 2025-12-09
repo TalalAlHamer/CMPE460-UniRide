@@ -66,9 +66,9 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error opening chat: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error opening chat: $e')));
       }
     }
   }
@@ -84,28 +84,52 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
           .collection('rides')
           .doc(widget.rideId)
           .get();
-      
+
       if (rideDoc.data()?['status'] == 'completed') {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('This ride has already been completed')),
+            const SnackBar(
+              content: Text('This ride has already been completed'),
+            ),
           );
         }
         return;
       }
 
+      // Fetch accepted passengers from Firestore FIRST
+      final acceptedRequestsSnapshot = await FirebaseFirestore.instance
+          .collection('rides')
+          .doc(widget.rideId)
+          .collection('requests')
+          .where('status', isEqualTo: 'accepted')
+          .get();
+
+      final acceptedPassengersList = acceptedRequestsSnapshot.docs
+          .map(
+            (doc) => {
+              'passengerId': doc['passengerId'],
+              'passengerName': doc['passengerName'] ?? 'Passenger',
+              ...doc.data(),
+            },
+          )
+          .toList();
+
       // Use batch to ensure all updates happen atomically
       final batch = FirebaseFirestore.instance.batch();
 
       // Mark ride as completed
-      final rideRef = FirebaseFirestore.instance.collection('rides').doc(widget.rideId);
+      final rideRef = FirebaseFirestore.instance
+          .collection('rides')
+          .doc(widget.rideId);
       batch.update(rideRef, {
         'status': 'completed',
         'completedAt': FieldValue.serverTimestamp(),
       });
 
       // Increment ride count for driver
-      final driverRef = FirebaseFirestore.instance.collection('users').doc(currentUser.uid);
+      final driverRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid);
       batch.update(driverRef, {'totalRides': FieldValue.increment(1)});
 
       // Get all ride requests for this ride to update their status
@@ -122,17 +146,21 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
           'completedAt': FieldValue.serverTimestamp(),
         });
       }
-      
+
       // Increment ride count for all accepted passengers and create pending ratings
-      for (final passenger in acceptedPassengers) {
+      for (final passenger in acceptedPassengersList) {
         final passengerId = passenger['passengerId'];
-        
+
         // Increment passenger ride count
-        final userRef = FirebaseFirestore.instance.collection('users').doc(passengerId);
+        final userRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(passengerId);
         batch.update(userRef, {'totalRides': FieldValue.increment(1)});
-        
+
         // Create pending rating for passenger to rate driver
-        final pendingRatingRef = FirebaseFirestore.instance.collection('pending_ratings').doc();
+        final pendingRatingRef = FirebaseFirestore.instance
+            .collection('pending_ratings')
+            .doc();
         batch.set(pendingRatingRef, {
           'passengerId': passengerId,
           'driverId': currentUser.uid,
@@ -146,11 +174,11 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
           'completed': false,
         });
       }
-      
+
       await batch.commit();
 
       // Navigate to rating screen for driver to rate passengers
-      final usersToRate = acceptedPassengers
+      final usersToRate = acceptedPassengersList
           .map(
             (p) => {
               'userId': p['passengerId'],
@@ -173,9 +201,9 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error ending ride: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error ending ride: $e')));
       }
     }
   }
@@ -453,7 +481,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                     // Add End Ride button after passengers if user is driver
                     final user = FirebaseAuth.instance.currentUser;
                     final isDriver = user?.uid == rideData['driverId'];
-                    
+
                     return Column(
                       children: [
                         ...passengerCards,
@@ -469,7 +497,9 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: kUniRideYellow,
                                     foregroundColor: Colors.black87,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),
@@ -480,13 +510,17 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: OutlinedButton.icon(
-                                  onPressed: () => _cancelRide(rideData['status'] ?? 'active'),
+                                  onPressed: () => _cancelRide(
+                                    rideData['status'] ?? 'active',
+                                  ),
                                   icon: const Icon(Icons.close, size: 20),
                                   label: const Text("Cancel Ride"),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.red,
                                     side: const BorderSide(color: Colors.red),
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(14),
                                     ),

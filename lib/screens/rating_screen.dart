@@ -5,7 +5,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class RatingScreen extends StatefulWidget {
   final String rideId;
   final bool isDriver; // true if current user is driver, false if passenger
-  final List<Map<String, dynamic>> usersToRate; // List of {userId, name} to rate
+  final List<Map<String, dynamic>>
+  usersToRate; // List of {userId, name} to rate
 
   const RatingScreen({
     super.key,
@@ -24,6 +25,8 @@ class _RatingScreenState extends State<RatingScreen> {
   static const Color kUniRideYellow = Color(0xFFFFC727);
 
   late Map<String, int> ratings; // Map of userId -> rating score
+  late Map<String, String> comments; // Map of userId -> comment
+  late Map<String, TextEditingController> commentControllers;
   int currentIndex = 0;
   bool isSubmitting = false;
 
@@ -31,9 +34,22 @@ class _RatingScreenState extends State<RatingScreen> {
   void initState() {
     super.initState();
     // Initialize ratings map with 0 for each user
-    ratings = {
-      for (var user in widget.usersToRate) user['userId']: 0
+    ratings = {for (var user in widget.usersToRate) user['userId']: 0};
+    // Initialize comments map
+    comments = {for (var user in widget.usersToRate) user['userId']: ''};
+    // Initialize text controllers for comments
+    commentControllers = {
+      for (var user in widget.usersToRate)
+        user['userId']: TextEditingController(),
     };
+  }
+
+  @override
+  void dispose() {
+    for (var controller in commentControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   Future<void> _submitRatings() async {
@@ -55,12 +71,15 @@ class _RatingScreenState extends State<RatingScreen> {
 
     try {
       final batch = FirebaseFirestore.instance.batch();
-      final ratingsCollection = FirebaseFirestore.instance.collection('ratings');
+      final ratingsCollection = FirebaseFirestore.instance.collection(
+        'ratings',
+      );
 
       // Add rating for each user
       for (final entry in ratings.entries) {
         final ratedUserId = entry.key;
         final score = entry.value;
+        final comment = comments[ratedUserId] ?? '';
 
         // Check if rating already exists for this ride and user
         final existingRating = await ratingsCollection
@@ -77,15 +96,22 @@ class _RatingScreenState extends State<RatingScreen> {
             'ratedBy': currentUser.uid,
             'ratedUserId': ratedUserId,
             'score': score,
+            'comment': comment,
             'createdAt': FieldValue.serverTimestamp(),
           });
         }
       }
 
-      // Note: Ride and request status are already marked as completed when the ride was ended
+      // Note: Ride and request status are already marked as completed when the ride was completed
       // We don't need to update them again here to avoid duplicate updates
 
       await batch.commit();
+
+      // Note: Notifications are sent automatically by Cloud Function (onRatingReceived)
+      // when a rating document is created in Firestore.
+      // The Cloud Function handles:
+      // - Sending FCM push notification
+      // - Creating notification document in notifications collection
 
       if (mounted) {
         // Close and navigate back with success result
@@ -123,7 +149,10 @@ class _RatingScreenState extends State<RatingScreen> {
           elevation: 0,
           centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: kUniRideTeal2),
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: kUniRideTeal2,
+            ),
             onPressed: () => Navigator.pop(context),
           ),
           title: const Text(
@@ -156,7 +185,10 @@ class _RatingScreenState extends State<RatingScreen> {
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: kUniRideTeal2),
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: kUniRideTeal2,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -197,22 +229,25 @@ class _RatingScreenState extends State<RatingScreen> {
             const SizedBox(height: 40),
 
             // Star rating
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                5,
-                (index) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() {
-                        ratings[currentUserId] = index + 1;
-                      });
-                    },
-                    child: Icon(
-                      index < currentRating ? Icons.star : Icons.star_border,
-                      color: kUniRideYellow,
-                      size: 48,
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  5,
+                  (index) => Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          ratings[currentUserId] = index + 1;
+                        });
+                      },
+                      child: Icon(
+                        index < currentRating ? Icons.star : Icons.star_border,
+                        color: kUniRideYellow,
+                        size: 40,
+                      ),
                     ),
                   ),
                 ),
@@ -223,12 +258,56 @@ class _RatingScreenState extends State<RatingScreen> {
 
             // Rating display
             Text(
-              currentRating == 0 ? 'Select a rating' : '$currentRating star${currentRating != 1 ? 's' : ''}',
+              currentRating == 0
+                  ? 'Select a rating'
+                  : '$currentRating star${currentRating != 1 ? 's' : ''}',
               style: TextStyle(
                 color: currentRating == 0 ? Colors.grey : Colors.black87,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // Comment section
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Add a comment (optional)',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            TextField(
+              controller: commentControllers[currentUserId],
+              maxLines: 3,
+              maxLength: 200,
+              onChanged: (value) {
+                comments[currentUserId] = value;
+              },
+              decoration: InputDecoration(
+                hintText: 'Share your thoughts about this ride...',
+                hintStyle: TextStyle(color: Colors.grey[400]),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: const BorderSide(color: kUniRideTeal2, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                counterStyle: TextStyle(color: Colors.grey[500]),
+              ),
+              style: const TextStyle(color: Colors.black87, fontSize: 14),
             ),
 
             const Spacer(),
@@ -288,9 +367,7 @@ class _RatingScreenState extends State<RatingScreen> {
                           ),
                         )
                       : ElevatedButton(
-                          onPressed: isSubmitting
-                              ? null
-                              : _submitRatings,
+                          onPressed: isSubmitting ? null : _submitRatings,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: kUniRideYellow,
                             disabledBackgroundColor: Colors.grey[300],

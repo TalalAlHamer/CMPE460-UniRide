@@ -7,31 +7,32 @@ class RideCleanupService {
   static Future<void> deleteExpiredRides() async {
     try {
       final now = DateTime.now();
-      
+
       // Get all rides
       final ridesSnapshot = await _firestore.collection('rides').get();
-      
+
       for (final doc in ridesSnapshot.docs) {
         final data = doc.data();
         final date = data['date'] as String?;
         final time = data['time'] as String?;
-        
+
         if (date != null && time != null) {
           final rideDateTime = _parseDateTime(date, time);
           final hoursSinceRide = now.difference(rideDateTime).inHours;
-          
+
           // If ride is 8+ hours past, delete it
           if (hoursSinceRide >= 8) {
-            // Delete associated ride requests
+            // Delete associated ride requests from subcollection
             final requestsSnapshot = await _firestore
-                .collection('ride_requests')
-                .where('rideId', isEqualTo: doc.id)
+                .collection('rides')
+                .doc(doc.id)
+                .collection('requests')
                 .get();
-            
+
             for (final requestDoc in requestsSnapshot.docs) {
               await requestDoc.reference.delete();
             }
-            
+
             // Delete the ride
             await doc.reference.delete();
           }
@@ -47,24 +48,27 @@ class RideCleanupService {
     try {
       final dateParts = date.split('/');
       if (dateParts.length != 3) return DateTime.now();
-      
+
       // Parse time with AM/PM
       final timeUpper = time.toUpperCase();
       final isPM = timeUpper.contains('PM');
-      final timeOnly = timeUpper.replaceAll('AM', '').replaceAll('PM', '').trim();
+      final timeOnly = timeUpper
+          .replaceAll('AM', '')
+          .replaceAll('PM', '')
+          .trim();
       final timeParts = timeOnly.split(':');
-      
+
       if (timeParts.length >= 2) {
         int hour = int.parse(timeParts[0]);
         final minute = int.parse(timeParts[1]);
-        
+
         // Convert to 24-hour format
         if (isPM && hour != 12) {
           hour += 12;
         } else if (!isPM && hour == 12) {
           hour = 0;
         }
-        
+
         return DateTime(
           int.parse(dateParts[2]), // year
           int.parse(dateParts[1]), // month
@@ -83,7 +87,7 @@ class RideCleanupService {
   static Future<void> scheduleCleanup() async {
     // Run cleanup immediately on app start
     await deleteExpiredRides();
-    
+
     // You could also set up a periodic timer here if needed
     // For example, run cleanup every hour:
     // Timer.periodic(const Duration(hours: 1), (_) => deleteExpiredRides());

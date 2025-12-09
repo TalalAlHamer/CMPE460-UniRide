@@ -190,8 +190,30 @@ exports.onRideRequest = functions.firestore
   .onCreate(async (snap, context) => {
     const request = snap.data();
     const rideId = context.params.rideId;
+    const requestId = context.params.requestId;
 
     try {
+      // Check if this passenger already has a request for this ride
+      const existingRequests = await admin.firestore()
+        .collection('rides')
+        .doc(rideId)
+        .collection('requests')
+        .where('passengerId', '==', request.passengerId)
+        .get();
+
+      // If more than 1 request exists (the new one we just created), it's a duplicate
+      if (existingRequests.docs.length > 1) {
+        console.log('Duplicate request detected for passenger:', request.passengerId);
+        // Delete the duplicate request
+        await admin.firestore()
+          .collection('rides')
+          .doc(rideId)
+          .collection('requests')
+          .doc(requestId)
+          .delete();
+        return;
+      }
+
       // Get ride details to find the driver
       const rideDoc = await admin.firestore().collection('rides').doc(rideId).get();
       if (!rideDoc.exists) return;
@@ -778,5 +800,102 @@ exports.autoCompleteExpiredRides = functions.pubsub
     } catch (error) {
       console.error('Error in auto-complete expired rides job:', error);
       return null;
+    }
+  });
+
+/**
+ * Send notification when a rider/driver receives a rating
+ */
+exports.onRatingReceived = functions.firestore
+  .document('ratings/{ratingId}')
+  .onCreate(async (snap, context) => {
+    const rating = snap.data();
+
+    try {
+      // Get the person who left the rating
+      const raterDoc = await admin.firestore().collection('users').doc(rating.ratedBy).get();
+      if (!raterDoc.exists) return;
+      
+      const rater = raterDoc.data();
+      const ratedUserId = rating.ratedUserId;
+
+      // Get the person being rated
+      const ratedUserDoc = await admin.firestore().collection('users').doc(ratedUserId).get();
+      if (!ratedUserDoc.exists) return;
+
+      const ratedUser = ratedUserDoc.data();
+      const fcmToken = ratedUser.fcmToken;
+
+      if (!fcmToken) {
+        console.log('No FCM token for user:', ratedUserId);
+        return;
+      }
+
+      // Determine if it's a driver or passenger based on ride
+      const rideDoc = await admin.firestore().collection('rides').doc(rating.rideId).get();
+      let riderType = 'User'; // Default fallback
+      
+      if (rideDoc.exists) {
+        const ride = rideDoc.data();
+        riderType = ride.driverId === ratedUserId ? 'Driver' : 'Passenger';
+      }
+
+      // Build notification message based on rating and comment
+      let notificationTitle = `${rater.name} left you a ${rating.score} star rating`;
+      let notificationBody = rating.comment || 'Thanks for the rating!';
+      
+      if (rating.comment && rating.comment.trim().length > 0) {
+        notificationTitle = `${rater.name} left you a ${rating.score} star rating`;
+        notificationBody = `"${rating.comment.substring(0, 60)}${rating.comment.length > 60 ? '...' : ''}"`;
+      }
+
+      // Send push notification
+      const message = {
+        token: fcmToken,
+        notification: {
+          title: notificationTitle,
+          body: notificationBody,
+        },
+        data: {
+          type: 'rating',
+          ratingId: snap.id,
+          rideId: rating.rideId,
+          ratedBy: rating.ratedBy,
+          score: rating.score.toString(),
+        },
+        android: {
+          priority: 'high',
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+            },
+          },
+        },
+      };
+
+      await admin.messaging().send(message);
+      console.log('Rating notification sent to:', ratedUserId);
+
+      // Create notification document in notifications collection
+      await admin.firestore().collection('notifications').add({
+        recipientId: ratedUserId,
+        senderId: rating.ratedBy,
+        senderName: rater.name,
+        title: notificationTitle,
+        body: notificationBody,
+        type: 'rating',
+        ratingId: snap.id,
+        rideId: rating.rideId,
+        score: rating.score,
+        comment: rating.comment || '',
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      console.log('Rating notification document created for:', ratedUserId);
+    } catch (error) {
+      console.error('Error sending rating notification:', error);
     }
   });
