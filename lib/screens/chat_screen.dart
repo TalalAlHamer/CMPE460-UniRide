@@ -103,6 +103,7 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       _messageController.clear();
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -184,7 +185,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         Icon(
                           Icons.chat_bubble_outline,
                           size: 80,
-                          color: ChatScreen.kUniRideTeal2.withOpacity(0.3),
+                          color: ChatScreen.kUniRideTeal2.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -200,7 +201,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           'Start the conversation!',
                           style: TextStyle(
                             fontSize: 14,
-                            color: ChatScreen.kUniRideTeal2.withOpacity(0.7),
+                            color: ChatScreen.kUniRideTeal2.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
@@ -237,7 +238,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 vertical: 4,
                               ),
                               decoration: BoxDecoration(
-                                color: ChatScreen.kUniRideTeal2.withOpacity(0.1),
+                                color: ChatScreen.kUniRideTeal2.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -270,7 +271,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               borderRadius: BorderRadius.circular(20),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
+                                  color: Colors.black.withValues(alpha: 0.05),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
@@ -321,7 +322,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 BoxShadow(
                   offset: const Offset(0, -2),
                   blurRadius: 8,
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                 ),
               ],
             ),
@@ -339,13 +340,13 @@ class _ChatScreenState extends State<ChatScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide(
-                            color: ChatScreen.kUniRideTeal2.withOpacity(0.2),
+                            color: ChatScreen.kUniRideTeal2.withValues(alpha: 0.2),
                           ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide(
-                            color: ChatScreen.kUniRideTeal2.withOpacity(0.2),
+                            color: ChatScreen.kUniRideTeal2.withValues(alpha: 0.2),
                           ),
                         ),
                         focusedBorder: OutlineInputBorder(
@@ -356,7 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           ),
                         ),
                         filled: true,
-                        fillColor: ChatScreen.kScreenTeal.withOpacity(0.3),
+                        fillColor: ChatScreen.kScreenTeal.withValues(alpha: 0.3),
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 16,
                           vertical: 10,
@@ -374,13 +375,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       gradient: LinearGradient(
                         colors: [
                           ChatScreen.kUniRideTeal2,
-                          ChatScreen.kUniRideTeal2.withOpacity(0.8),
+                          ChatScreen.kUniRideTeal2.withValues(alpha: 0.8),
                         ],
                       ),
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: ChatScreen.kUniRideTeal2.withOpacity(0.3),
+                          color: ChatScreen.kUniRideTeal2.withValues(alpha: 0.3),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

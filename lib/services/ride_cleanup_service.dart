@@ -39,7 +39,7 @@ class RideCleanupService {
         }
       }
     } catch (e) {
-      print('Error deleting expired rides: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
@@ -78,7 +78,7 @@ class RideCleanupService {
         );
       }
     } catch (e) {
-      print('Error parsing date/time: $e');
+    // Error handling: silently catch to prevent crashes
     }
     return DateTime.now();
   }

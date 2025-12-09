@@ -109,7 +109,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         }
 
         if (snapshot.hasError) {
-          print('Error loading rides: ${snapshot.error}');
           return Center(
             child: Text(
               "Error loading rides: ${snapshot.error}",
@@ -118,18 +117,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           );
         }
 
-        print('User ID: $userId');
-        print('Rides found: ${snapshot.data?.docs.length ?? 0}');
-
-        // Debug: Print each ride's details
-        if (snapshot.hasData) {
-          for (var doc in snapshot.data!.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            print(
-              'Ride ${doc.id}: driverId=${data['driverId']}, status=${data['status']}',
-            );
-          }
-        }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
           return const Center(
@@ -151,21 +138,12 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           final data = ride.data() as Map<String, dynamic>;
           final rideDateTime = _parseDateTime(data['date'], data['time']);
 
-          print('Ride date: ${data['date']}, time: ${data['time']}');
-          print(
-            'Parsed datetime: $rideDateTime, now: $now, isAfter: ${rideDateTime.isAfter(now)}',
-          );
-
           if (rideDateTime.isAfter(now)) {
             upcomingRides.add(ride);
           } else {
             pastRides.add(ride);
           }
         }
-
-        print(
-          'Upcoming rides: ${upcomingRides.length}, Past rides: ${pastRides.length}',
-        );
 
         // Sort both lists by time (nearest first for upcoming, most recent first for past)
         upcomingRides.sort((a, b) {
@@ -266,8 +244,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
   }
 
   Widget _buildRequestedRidesTab(String userId) {
-    print('========== BUILDING REQUESTED RIDES TAB ==========');
-    print('User ID for query: $userId');
 
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -285,36 +261,17 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           )
           .snapshots(),
       builder: (context, snapshot) {
-        print(
-          'StreamBuilder callback - connectionState: ${snapshot.connectionState}',
-        );
-
         if (snapshot.connectionState == ConnectionState.waiting) {
-          print('Waiting for data...');
           return const Center(
             child: CircularProgressIndicator(color: kUniRideTeal2),
           );
         }
 
-        print('Has data: ${snapshot.hasData}');
-        print('Has error: ${snapshot.hasError}');
         if (snapshot.hasError) {
-          print('Error: ${snapshot.error}');
-        }
-        print('Docs count: ${snapshot.data?.docs.length ?? 0}');
-
-        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-          print('Found ${snapshot.data!.docs.length} ride requests:');
-          for (var doc in snapshot.data!.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            print(
-              '  - Request ${doc.id}: status=${data['status']}, from=${data['from']}, to=${data['to']}',
-            );
-          }
+          return const Center(child: Text('Error loading requests'));
         }
 
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          print('No ride requests found for user $userId');
           return const Center(
             child: Text(
               "You haven't requested any rides yet.",
@@ -326,7 +283,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         // Separate into upcoming and past requests
         final requests = snapshot.data!.docs;
         final now = DateTime.now();
-        print('Current time: $now');
 
         final upcomingRequests = <QueryDocumentSnapshot>[];
         final pastRequests = <QueryDocumentSnapshot>[];
@@ -334,22 +290,14 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         for (final request in requests) {
           final data = request.data() as Map<String, dynamic>;
           final requestDateTime = _parseDateTime(data['date'], data['time']);
-          print('Request: ${data['from']} -> ${data['to']}');
-          print('  Date string: ${data['date']}, Time string: ${data['time']}');
-          print('  Parsed DateTime: $requestDateTime');
-          print('  Is after now? ${requestDateTime.isAfter(now)}');
 
           if (requestDateTime.isAfter(now)) {
-            print('  -> Adding to UPCOMING');
             upcomingRequests.add(request);
           } else {
-            print('  -> Adding to PAST');
             pastRequests.add(request);
           }
         }
 
-        print('Total upcoming: ${upcomingRequests.length}');
-        print('Total past: ${pastRequests.length}');
 
         // Sort both lists by time (nearest first for upcoming, most recent first for past)
         upcomingRequests.sort((a, b) {
@@ -379,10 +327,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             upcomingHeaderCount +
             pastHeaderCount;
 
-        print(
-          'Item count: $totalItemCount (${upcomingRequests.length} upcoming + ${pastRequests.length} past + $upcomingHeaderCount upcoming header + $pastHeaderCount past header)',
-        );
-
         return RefreshIndicator(
           onRefresh: () async {
             // Force rebuild to refresh stream data
@@ -395,7 +339,6 @@ class _MyRidesScreenState extends State<MyRidesScreen>
             padding: const EdgeInsets.all(16),
             itemCount: totalItemCount,
             itemBuilder: (context, index) {
-              print('Building item at index $index');
               // Upcoming requests section
               if (upcomingRequests.isNotEmpty && index == 0) {
                 return const Padding(
@@ -554,7 +497,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
         );
       }
     } catch (e) {
-      print('Error parsing date/time: $e');
+    // Error handling: silently catch to prevent crashes
     }
     return DateTime.now();
   }
@@ -610,7 +553,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -629,7 +572,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -650,8 +593,8 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                     ),
                     decoration: BoxDecoration(
                       color: seatsAvailable <= 0
-                          ? Colors.red.withOpacity(0.15)
-                          : kUniRideTeal2.withOpacity(0.15),
+                          ? Colors.red.withValues(alpha: 0.15)
+                          : kUniRideTeal2.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -852,7 +795,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 6,
               offset: const Offset(0, 3),
             ),
@@ -881,7 +824,7 @@ class _MyRidesScreenState extends State<MyRidesScreen>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.15),
+                    color: statusColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(

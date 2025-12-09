@@ -81,7 +81,7 @@ class ChatListScreen extends StatelessWidget {
                         Icon(
                           Icons.chat_bubble_outline,
                           size: 80,
-                          color: kUniRideTeal2.withOpacity(0.3),
+                          color: kUniRideTeal2.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -97,7 +97,7 @@ class ChatListScreen extends StatelessWidget {
                           'Start chatting when you request or offer a ride',
                           style: TextStyle(
                             fontSize: 14,
-                            color: kUniRideTeal2.withOpacity(0.7),
+                            color: kUniRideTeal2.withValues(alpha: 0.7),
                           ),
                           textAlign: TextAlign.center,
                         ),

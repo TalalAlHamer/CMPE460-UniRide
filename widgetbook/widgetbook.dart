@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:widgetbook/widgetbook.dart';
 import 'package:firebase_core/firebase_core.dart';
-import '../lib/firebase_options.dart';
+import 'package:uniride_app/firebase_options.dart';
 
 // Import your screens
-import '../lib/screens/login_screen.dart';
-import '../lib/screens/register_screen.dart';
-import '../lib/screens/home_screen.dart';
-import '../lib/screens/profile_screen.dart';
-import '../lib/screens/passenger_find_ride_screen.dart';
-import '../lib/screens/driver_create_vehicle_screen.dart';
-import '../lib/screens/driver_offer_ride_screen.dart';
-import '../lib/screens/my_rides_screen.dart';
-import '../lib/screens/incoming_ride_requests_screen.dart';
-import '../lib/screens/driver_vehicles_screen.dart';
-import '../lib/screens/driver_ride_published_confirmation_screen.dart';
-import '../lib/screens/passenger_request_confirmation_screen.dart';
+import 'package:uniride_app/screens/login_screen.dart';
+import 'package:uniride_app/screens/register_screen.dart';
+import 'package:uniride_app/screens/home_screen.dart';
+import 'package:uniride_app/screens/profile_screen.dart';
+import 'package:uniride_app/screens/passenger_find_ride_screen.dart';
+import 'package:uniride_app/screens/driver_create_vehicle_screen.dart';
+import 'package:uniride_app/screens/driver_offer_ride_screen.dart';
+import 'package:uniride_app/screens/my_rides_screen.dart';
+import 'package:uniride_app/screens/incoming_ride_requests_screen.dart';
+import 'package:uniride_app/screens/driver_vehicles_screen.dart';
+import 'package:uniride_app/screens/driver_ride_published_confirmation_screen.dart';
+import 'package:uniride_app/screens/passenger_request_confirmation_screen.dart';
 
 void main() {
   runApp(const WidgetbookApp());
@@ -218,10 +218,10 @@ class WidgetbookApp extends StatelessWidget {
             Devices.ios.iPhoneSE,
             Devices.android.samsungGalaxyS20,
           ],
-          initialDevice: Devices.ios.iPhone13,
         ),
         TextScaleAddon(
-          scales: [1.0, 1.5, 2.0],
+          min: 1.0,
+          max: 2.0,
           initialScale: 1.0,
         ),
       ],

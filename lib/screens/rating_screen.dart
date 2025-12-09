@@ -124,6 +124,7 @@ class _RatingScreenState extends State<RatingScreen> {
         );
       }
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

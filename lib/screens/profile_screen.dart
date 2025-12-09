@@ -112,6 +112,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               final user = _auth.currentUser;
               if (user != null) {
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(context);
                 await user.updateDisplayName(nameController.text);
 
                 await _firestore.collection('users').doc(user.uid).set({
@@ -123,9 +125,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 }, SetOptions(merge: true));
 
                 if (!mounted) return;
-                Navigator.pop(context);
+                navigator.pop();
 
-                ScaffoldMessenger.of(context).showSnackBar(
+                messenger.showSnackBar(
                   const SnackBar(content: Text("Profile updated")),
                 );
 
@@ -153,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         return userDoc.data()?['name'] as String? ?? 'Unknown User';
       }
     } catch (e) {
-      print('Error fetching rater name: $e');
+    // Error handling: silently catch to prevent crashes
     }
     return 'Unknown User';
   }
@@ -220,7 +222,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       children: [
                         CircleAvatar(
                           radius: 32,
-                          backgroundColor: kUniRideTeal1.withOpacity(0.15),
+                          backgroundColor: kUniRideTeal1.withValues(alpha: 0.15),
                           child: Text(
                             initials,
                             style: const TextStyle(

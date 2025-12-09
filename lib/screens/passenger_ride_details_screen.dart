@@ -148,6 +148,7 @@ class _PassengerRideDetailsScreenState
         );
       }
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       setState(() => _isRequesting = false);
       _showMessage("Error requesting ride: $e");
     }
@@ -212,6 +213,7 @@ class _PassengerRideDetailsScreenState
         );
       }
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       _showMessage('Error opening chat: $e');
     }
   }
@@ -341,7 +343,7 @@ class _PassengerRideDetailsScreenState
                       children: [
                         CircleAvatar(
                           radius: 26,
-                          backgroundColor: kUniRideTeal2.withOpacity(0.15),
+                          backgroundColor: kUniRideTeal2.withValues(alpha: 0.15),
                           child: Text(
                             driverName[0].toUpperCase(),
                             style: const TextStyle(
@@ -531,7 +533,7 @@ class _PassengerRideDetailsScreenState
     borderRadius: BorderRadius.circular(16),
     boxShadow: [
       BoxShadow(
-        color: Colors.black.withOpacity(0.1),
+        color: Colors.black.withValues(alpha: 0.1),
         blurRadius: 6,
         offset: const Offset(0, 3),
       ),
@@ -734,6 +736,7 @@ class _PassengerRideDetailsScreenState
               Navigator.pop(context);
             }
           } catch (e) {
+    // Error handling: silently catch to prevent crashes
             _showMessage("Error cancelling request: $e");
           }
         },

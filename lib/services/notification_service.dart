@@ -25,7 +25,6 @@ class NotificationService {
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-      print('User granted notification permission');
     }
 
     // Initialize local notifications
@@ -74,7 +73,6 @@ class NotificationService {
 
       final token = await _messaging.getToken();
       if (token == null) {
-        print('FCM token is null, will retry on token refresh');
         return;
       }
 
@@ -84,13 +82,11 @@ class NotificationService {
         'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      print('FCM Token saved: $token');
     } catch (e) {
-      print('Error saving FCM token: $e');
+    // Error handling: silently catch to prevent crashes
 
       // For iOS APNs token error, retry after delay
       if (e.toString().contains('apns-token-not-set') && Platform.isIOS) {
-        print('APNs token not ready, will retry via token refresh listener');
       }
     }
   }
@@ -107,15 +103,13 @@ class NotificationService {
         'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-      print('FCM Token updated: $token');
     } catch (e) {
-      print('Error updating FCM token: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
   /// Handle foreground messages
   static Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    print('Foreground message received: ${message.messageId}');
 
     // Show local notification when app is in foreground
     const AndroidNotificationDetails androidDetails =
@@ -145,19 +139,17 @@ class NotificationService {
 
   /// Handle notification tap (background)
   static void _handleNotificationTap(RemoteMessage message) {
-    print('Notification tapped: ${message.data}');
     _navigateBasedOnNotification(message.data);
   }
 
   /// Handle local notification tap (foreground)
   static void _onNotificationTapped(NotificationResponse response) {
-    print('Local notification tapped: ${response.payload}');
     if (response.payload != null) {
       try {
         final data = jsonDecode(response.payload!) as Map<String, dynamic>;
         _navigateBasedOnNotification(data);
       } catch (e) {
-        print('Error parsing notification payload: $e');
+    // Error handling: silently catch to prevent crashes
       }
     }
   }
@@ -166,12 +158,10 @@ class NotificationService {
   static void _navigateBasedOnNotification(Map<String, dynamic> data) {
     final context = navigatorKey.currentContext;
     if (context == null) {
-      print('Navigation context not available');
       return;
     }
 
     final type = data['type'];
-    print('Navigating for notification type: $type');
 
     // Delay to ensure UI is ready
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -222,7 +212,6 @@ class NotificationService {
           break;
 
         default:
-          print('Unknown notification type: $type');
           break;
       }
     });
@@ -263,10 +252,9 @@ class NotificationService {
           );
         }
       } else {
-        print('Ride not found: $rideId');
       }
     } catch (e) {
-      print('Error navigating from rating comment: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
@@ -287,10 +275,9 @@ class NotificationService {
           ),
         );
       } else {
-        print('Ride not found: $rideId');
       }
     } catch (e) {
-      print('Error fetching ride data: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
@@ -311,10 +298,9 @@ class NotificationService {
           ),
         );
       } else {
-        print('Ride not found: $rideId');
       }
     } catch (e) {
-      print('Error fetching ride data: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
@@ -337,7 +323,7 @@ class NotificationService {
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {
-      print('Error sending notification: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
@@ -352,9 +338,8 @@ class NotificationService {
       );
 
       await _messaging.deleteToken();
-      print('FCM Token deleted');
     } catch (e) {
-      print('Error deleting FCM token: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 }

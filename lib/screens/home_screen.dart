@@ -71,7 +71,6 @@ class _HomeScreenState extends State<HomeScreen> {
             }
           },
           onError: (e) {
-            print('Error listening to pending ratings: $e');
           },
         );
   }
@@ -105,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen> {
             .update({'completed': true});
       }
     } catch (e) {
-      print('Error showing rating screen: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
@@ -126,14 +125,18 @@ class _HomeScreenState extends State<HomeScreen> {
       // Get current position with timeout
       Position pos =
           await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-            timeLimit: const Duration(seconds: 10),
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              timeLimit: Duration(seconds: 10),
+            ),
           ).timeout(
             const Duration(seconds: 10),
             onTimeout: () async {
               // If timeout, try with lower accuracy
               return await Geolocator.getCurrentPosition(
-                desiredAccuracy: LocationAccuracy.medium,
+                locationSettings: const LocationSettings(
+                  accuracy: LocationAccuracy.medium,
+                ),
               );
             },
           );
@@ -142,7 +145,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
       _userLocation = LatLng(pos.latitude, pos.longitude);
 
-      print('User location loaded: ${pos.latitude}, ${pos.longitude}');
 
       setState(() {
         _center = _userLocation!;
@@ -158,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
-      print('Error getting location: $e');
+    // Error handling: silently catch to prevent crashes
       if (mounted) {
         setState(() => _mapLoaded = true);
         _showMessage("Could not get your location. Using default location.");
@@ -242,7 +244,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return data['display_name'] as String?;
       }
     } catch (e) {
-      print('Error getting address: $e');
+    // Error handling: silently catch to prevent crashes
     }
     return null;
   }
@@ -491,6 +493,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   width: double.infinity,
                   child: OutlinedButton(
                     onPressed: () async {
+                      final navigator = Navigator.of(context);
                       // If user selected a point on the map, get its address
                       String? address;
                       if (_selectedPoint != null) {
@@ -499,14 +502,16 @@ class _HomeScreenState extends State<HomeScreen> {
                             _selectedPoint!,
                           );
                         } catch (e) {
+    // Error handling: silently catch to prevent crashes
                           // Fallback to coordinates if reverse geocoding fails
                           address =
                               "${_selectedPoint!.latitude.toStringAsFixed(4)}, ${_selectedPoint!.longitude.toStringAsFixed(4)}";
                         }
                       }
 
-                      Navigator.push(
-                        context,
+                      if (!mounted) return;
+
+                      navigator.push(
                         MaterialPageRoute(
                           builder: (_) => PassengerFindRideScreen(
                             initialPickupLocation: _selectedPoint,

@@ -31,7 +31,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
           .get();
       return doc.data() ?? {};
     } catch (e) {
-      print('Error fetching driver info: $e');
+    // Error handling: silently catch to prevent crashes
       return {};
     }
   }
@@ -49,7 +49,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
       }
       return {};
     } catch (e) {
-      print('Error fetching vehicle info: $e');
+    // Error handling: silently catch to prevent crashes
       return {};
     }
   }
@@ -132,7 +132,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -188,7 +188,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -229,7 +229,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -307,7 +307,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -414,7 +414,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -455,7 +455,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withValues(alpha: 0.1),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -532,7 +532,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
         return userDoc.data()?['name'] as String? ?? 'Anonymous';
       }
     } catch (e) {
-      print('Error fetching rater name: $e');
+    // Error handling: silently catch to prevent crashes
     }
     return 'Anonymous';
   }

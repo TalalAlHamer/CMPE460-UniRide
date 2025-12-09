@@ -50,6 +50,7 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
           );
         }
       } catch (e) {
+    // Error handling: silently catch to prevent crashes
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error deleting vehicle: $e')),
@@ -211,7 +212,7 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -251,7 +252,7 @@ class _DriverVehiclesScreenState extends State<DriverVehiclesScreen> {
                 Icon(
                   Icons.directions_car,
                   size: 40,
-                  color: kUniRideTeal2.withOpacity(0.3),
+                  color: kUniRideTeal2.withValues(alpha: 0.3),
                 ),
               ],
             ),

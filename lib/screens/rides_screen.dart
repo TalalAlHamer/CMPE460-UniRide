@@ -295,7 +295,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
     final name = data["passengerName"] ?? "Passenger";
     final reason = data["cancelReason"] ?? "No reason given";
     final ts = data["cancelledAt"] as Timestamp?;
-    final t = ts != null ? ts.toDate() : null;
+    final t = ts?.toDate();
     final time = t == null
         ? "--:--"
         : "${t.hour}:${t.minute.toString().padLeft(2, '0')}";
@@ -304,7 +304,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.08),
+        color: Colors.red.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.redAccent),
       ),
@@ -380,7 +380,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
       borderRadius: BorderRadius.circular(16),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.08),
+          color: Colors.black.withValues(alpha: 0.08),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),

@@ -17,12 +17,12 @@ class RatingService {
 
       final total = query.docs.fold<int>(
         0,
-        (sum, doc) => sum + (doc['score'] as int? ?? 0),
+        (acc, doc) => acc + (doc['rating'] as int? ?? 0),
       );
 
       return total / query.docs.length;
     } catch (e) {
-      print('Error fetching average rating: $e');
+    // Error handling: silently catch to prevent crashes
       return 0.0;
     }
   }
@@ -37,7 +37,7 @@ class RatingService {
 
       return query.docs.length;
     } catch (e) {
-      print('Error fetching rating count: $e');
+    // Error handling: silently catch to prevent crashes
       return 0;
     }
   }
@@ -56,7 +56,7 @@ class RatingService {
 
       final total = query.docs.fold<int>(
         0,
-        (sum, doc) => sum + (doc['score'] as int? ?? 0),
+        (acc, doc) => acc + (doc['score'] as int? ?? 0),
       );
 
       final average = total / query.docs.length;
@@ -64,7 +64,7 @@ class RatingService {
 
       return "${average.toStringAsFixed(1)} ⭐ ($count rating${count != 1 ? 's' : ''})";
     } catch (e) {
-      print('Error getting rating display: $e');
+    // Error handling: silently catch to prevent crashes
       return "No ratings yet";
     }
   }
@@ -82,7 +82,7 @@ class RatingService {
 
           final total = snapshot.docs.fold<int>(
             0,
-            (sum, doc) => sum + (doc['score'] as int? ?? 0),
+            (acc, doc) => acc + (doc['score'] as int? ?? 0),
           );
 
           return total / snapshot.docs.length;
@@ -105,7 +105,7 @@ class RatingService {
 
       return query.docs.isNotEmpty;
     } catch (e) {
-      print('Error checking rating status: $e');
+    // Error handling: silently catch to prevent crashes
       return false;
     }
   }

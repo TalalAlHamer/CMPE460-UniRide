@@ -43,7 +43,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
       await batch.commit();
     } catch (e) {
-      print('Error marking notifications as read: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
@@ -184,6 +184,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           break;
       }
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error opening notification: $e')),
       );
@@ -251,7 +253,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         Icon(
                           Icons.notifications_none,
                           size: 80,
-                          color: kUniRideTeal2.withOpacity(0.3),
+                          color: kUniRideTeal2.withValues(alpha: 0.3),
                         ),
                         const SizedBox(height: 16),
                         Text(
@@ -267,7 +269,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           'You\'ll see ride updates and messages here',
                           style: TextStyle(
                             fontSize: 14,
-                            color: kUniRideTeal2.withOpacity(0.7),
+                            color: kUniRideTeal2.withValues(alpha: 0.7),
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -330,12 +332,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           decoration: BoxDecoration(
                             color: isRead
                                 ? Colors.white
-                                : kUniRideTeal2.withOpacity(0.05),
+                                : kUniRideTeal2.withValues(alpha: 0.05),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isRead
                                   ? Colors.grey.shade200
-                                  : kUniRideTeal2.withOpacity(0.2),
+                                  : kUniRideTeal2.withValues(alpha: 0.2),
                               width: isRead ? 1 : 2,
                             ),
                           ),
@@ -345,7 +347,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             vertical: 8,
                           ),
                           leading: CircleAvatar(
-                            backgroundColor: _getColorForType(type).withOpacity(0.2),
+                            backgroundColor: _getColorForType(type).withValues(alpha: 0.2),
                             child: Icon(
                               _getIconForType(type),
                               color: _getColorForType(type),

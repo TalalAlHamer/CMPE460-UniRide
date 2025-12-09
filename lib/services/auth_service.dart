@@ -32,6 +32,7 @@ class AuthService {
     } on FirebaseAuthException catch (e) {
       return e.message;
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       return e.toString();
     }
   }

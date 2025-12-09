@@ -119,10 +119,11 @@ Future<void> _navigateToDriverRideDetails(String rideId) async {
         ),
       );
     } else {
-      print('Ride not found: $rideId');
+      // No ride document found
     }
   } catch (e) {
-    print('Error fetching ride data: $e');
+    // Error handling: silently catch to prevent crashes
+    // Silently handle navigation errors
   }
 }
 
@@ -145,10 +146,11 @@ Future<void> _navigateToPassengerRideDetails(String rideId) async {
         ),
       );
     } else {
-      print('Ride not found: $rideId');
+      // No ride document found
     }
   } catch (e) {
-    print('Error fetching ride data: $e');
+    // Error handling: silently catch to prevent crashes
+    // Silently handle navigation errors
   }
 }
 

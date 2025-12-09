@@ -94,6 +94,7 @@ class _DriverCreateVehicleScreenState extends State<DriverCreateVehicleScreen> {
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       setState(() => _isSaving = false);
       _showMessage("Error saving vehicle: $e");
     }

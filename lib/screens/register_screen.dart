@@ -78,6 +78,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             "createdAt": Timestamp.now(),
           });
 
+      if (!mounted) return;
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       if (e.code == "email-already-in-use") {
@@ -228,7 +229,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: kUniRideTeal2.withOpacity(0.4)),
+        border: Border.all(color: kUniRideTeal2.withValues(alpha: 0.4)),
       ),
       child: TextField(
         obscureText: obscure,

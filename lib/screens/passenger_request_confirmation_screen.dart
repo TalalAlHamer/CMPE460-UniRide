@@ -70,7 +70,7 @@ class PassengerRequestConfirmationScreen extends StatelessWidget {
             // SUCCESS ICON
             CircleAvatar(
               radius: 45,
-              backgroundColor: kUniRideTeal2.withOpacity(0.15),
+              backgroundColor: kUniRideTeal2.withValues(alpha: 0.15),
               child: const Icon(
                 Icons.check_circle,
                 color: kUniRideTeal2,
@@ -107,7 +107,7 @@ class PassengerRequestConfirmationScreen extends StatelessWidget {
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
+                    color: Colors.black.withValues(alpha: 0.12),
                     blurRadius: 6,
                     offset: const Offset(0, 3),
                   ),

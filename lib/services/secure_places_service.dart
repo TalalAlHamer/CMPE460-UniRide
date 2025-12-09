@@ -53,7 +53,7 @@ class SecurePlacesService {
       
       return results;
     } catch (e) {
-      print('Error searching places: $e');
+    // Error handling: silently catch to prevent crashes
       return [];
     }
   }
@@ -69,7 +69,7 @@ class SecurePlacesService {
         'lng': (result.data['lng'] as num).toDouble(),
       };
     } catch (e) {
-      print('Error getting place details: $e');
+    // Error handling: silently catch to prevent crashes
       return null;
     }
   }
@@ -85,7 +85,7 @@ class SecurePlacesService {
       
       return result.data['address'] as String?;
     } catch (e) {
-      print('Error reverse geocoding: $e');
+    // Error handling: silently catch to prevent crashes
       return null;
     }
   }

@@ -65,6 +65,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
         );
       }
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -200,6 +201,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
         );
       }
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -245,6 +247,8 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                     "cancelledAt": FieldValue.serverTimestamp(),
                   });
 
+              if (!mounted) return;
+
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text("Ride cancelled"),
@@ -252,6 +256,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                 ),
               );
 
+              if (!mounted) return;
               Navigator.pop(context);
             },
             child: const Text(
@@ -335,7 +340,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -376,7 +381,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -455,7 +460,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -572,7 +577,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
+                              color: Colors.black.withValues(alpha: 0.08),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -654,7 +659,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -698,7 +703,7 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: kUniRideTeal2.withOpacity(0.15),
+              color: kUniRideTeal2.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: kUniRideTeal2),
             ),
@@ -727,12 +732,12 @@ class _DriverRideDetailsScreenState extends State<DriverRideDetailsScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.withOpacity(0.05),
+        color: Colors.red.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.red.withOpacity(0.3)),
+        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.08),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

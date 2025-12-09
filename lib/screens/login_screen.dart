@@ -115,6 +115,7 @@ class _LoginScreenState extends State<LoginScreen>
         MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       _showError("Invalid email or password.");
     } finally {
       setState(() => _loading = false);
@@ -287,7 +288,7 @@ class _LoginScreenState extends State<LoginScreen>
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.black.withOpacity(0.45),
+                    color: Colors.black.withValues(alpha: 0.45),
                   ),
                 ),
 
@@ -334,7 +335,7 @@ class _LoginScreenState extends State<LoginScreen>
                 height: 58,
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.75),
+                  color: Colors.white.withValues(alpha: 0.75),
                   borderRadius: BorderRadius.circular(22),
                 ),
 

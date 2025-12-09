@@ -77,13 +77,15 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
   Future<void> _getUserLocation() async {
     try {
       final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+        ),
       );
       setState(() {
         _currentUserLocation = LatLng(position.latitude, position.longitude);
       });
     } catch (e) {
-      print('Error getting user location: $e');
+    // Error handling: silently catch to prevent crashes
     }
   }
 
@@ -156,11 +158,15 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
 
     LatLng initialCenter = const LatLng(26.0667, 50.5577);
     final current = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
     );
 
     initialCenter = LatLng(current.latitude, current.longitude);
     selectedPoint = initialCenter;
+
+    if (!mounted) return;
 
     await showModalBottomSheet(
       context: context,
@@ -221,6 +227,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                       onPressed: selectedPoint == null
                           ? null
                           : () async {
+                              final navigator = Navigator.of(sheetContext);
                               final address = await SecurePlacesService.reverse(
                                 selectedPoint!,
                               );
@@ -233,7 +240,8 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                                 _suggestions = [];
                               });
 
-                              Navigator.of(sheetContext).pop();
+                              if (!mounted) return;
+                              navigator.pop();
                             },
                       child: const Text(
                         "Confirm Pickup Location",
@@ -482,7 +490,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: _suggestions.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (context, index) =>
             const Divider(height: 1, color: Colors.black12),
         itemBuilder: (context, i) {
           final s = _suggestions[i];
@@ -602,7 +610,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
                     Text(
                       "Within ${_searchRadiusKm.toStringAsFixed(0)}km",
                       style: TextStyle(
-                        color: kUniRideTeal2.withOpacity(0.7),
+                        color: kUniRideTeal2.withValues(alpha: 0.7),
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
@@ -798,7 +806,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: kUniRideTeal2.withOpacity(0.4)),
+        border: Border.all(color: kUniRideTeal2.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: TextField(
@@ -830,7 +838,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: kUniRideTeal2.withOpacity(0.4)),
+        border: Border.all(color: kUniRideTeal2.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: TextField(
@@ -851,7 +859,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
       height: 56,
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: kUniRideTeal2.withOpacity(0.4)),
+        border: Border.all(color: kUniRideTeal2.withValues(alpha: 0.4)),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -921,7 +929,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.12),
+                color: Colors.black.withValues(alpha: 0.12),
                 blurRadius: 6,
                 offset: const Offset(0, 3),
               ),
@@ -1140,6 +1148,7 @@ class _PassengerFindRideScreenState extends State<PassengerFindRideScreen> {
 
       return TimeOfDay(hour: hour, minute: minute);
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       return null;
     }
   }

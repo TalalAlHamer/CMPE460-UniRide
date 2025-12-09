@@ -54,6 +54,7 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
 
       _showMessage("Request accepted!");
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       _showMessage("Error accepting request: $e");
     }
   }
@@ -76,6 +77,7 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
 
       _showMessage("Request declined");
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       _showMessage("Error declining request: $e");
     }
   }
@@ -211,7 +213,7 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
                   ),
                   child: ListView.separated(
                     itemCount: requests.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    separatorBuilder: (context, index) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final doc = requests[index];
                       final data = doc.data() as Map<String, dynamic>;
@@ -269,7 +271,7 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.12),
+            color: Colors.black.withValues(alpha: 0.12),
             blurRadius: 6,
             offset: const Offset(0, 3),
           ),
@@ -343,7 +345,7 @@ class _IncomingRideRequestsScreenState extends State<IncomingRideRequestsScreen>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
+                  color: statusColor.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: statusColor, width: 1),
                 ),

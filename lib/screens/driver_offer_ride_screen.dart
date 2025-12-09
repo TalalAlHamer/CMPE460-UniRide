@@ -132,6 +132,8 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
     final pos = await _getCurrentLoc();
     if (pos != null) defaultLoc = pos;
 
+    if (!mounted) return;
+
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -186,6 +188,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                       onPressed: picked == null
                           ? null
                           : () async {
+                              final navigator = Navigator.of(context);
                               final addr = await SecurePlacesService.reverse(
                                 picked!,
                               );
@@ -199,7 +202,8 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                               });
 
                               _updateRouteInfo();
-                              Navigator.pop(context);
+                              if (!mounted) return;
+                              navigator.pop();
                             },
                       child: const Text(
                         "Confirm Location",
@@ -272,7 +276,9 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
     }
 
     final p = await Geolocator.getCurrentPosition(
-      desiredAccuracy: LocationAccuracy.high,
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.high,
+      ),
     );
     return LatLng(p.latitude, p.longitude);
   }
@@ -572,8 +578,6 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
       final totalSeats = int.tryParse(_seats.text) ?? 1;
       final priceValue = double.tryParse(_price.text) ?? 0.0;
 
-      print('Creating ride with driverId: ${user.uid}');
-      print('Driver name: $userName');
 
       final rideData = {
         'driverId': user.uid,
@@ -604,10 +608,9 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
         'vehicleLicensePlate': selectedVehicleData?['licensePlate'],
       };
 
-      final docRef = await FirebaseFirestore.instance
+      await FirebaseFirestore.instance
           .collection('rides')
           .add(rideData);
-      print('Ride created with ID: ${docRef.id}');
 
       if (mounted) Navigator.pop(context);
 
@@ -626,6 +629,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
         );
       }
     } catch (e) {
+    // Error handling: silently catch to prevent crashes
       if (mounted) Navigator.pop(context);
       msg("Error publishing ride: $e");
     }
@@ -729,7 +733,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
+                      color: Colors.black.withValues(alpha: 0.12),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -762,7 +766,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                             borderRadius: BorderRadius.circular(14),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
+                                color: Colors.black.withValues(alpha: 0.08),
                                 blurRadius: 8,
                                 offset: const Offset(0, 4),
                               ),
@@ -782,7 +786,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                                 onTap: () => _select(s),
                               );
                             },
-                            separatorBuilder: (_, __) =>
+                            separatorBuilder: (context, index) =>
                                 const Divider(height: 1),
                             itemCount: _results.length,
                           ),
@@ -794,7 +798,7 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              "Approx. ${distanceKm!.toStringAsFixed(1)} km • ~${durationMin} min",
+                              "Approx. ${distanceKm!.toStringAsFixed(1)} km • ~$durationMin min",
                               style: const TextStyle(
                                 fontSize: 13,
                                 color: Colors.black54,
@@ -839,8 +843,9 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                                 validator: (v) {
                                   if (v == null || v.isEmpty) return "Required";
                                   final val = int.tryParse(v);
-                                  if (val == null || val < 1)
+                                  if (val == null || val < 1) {
                                     return "Min 1 seat";
+                                  }
                                   if (val > 10) return "Max 10 seats";
                                   return null;
                                 },
