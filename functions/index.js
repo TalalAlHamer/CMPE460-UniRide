@@ -192,6 +192,9 @@ exports.onRideRequest = functions.firestore
     const rideId = context.params.rideId;
     const requestId = context.params.requestId;
 
+    console.log('onRideRequest triggered for rideId:', rideId, 'requestId:', requestId);
+    console.log('Request data:', request);
+
     try {
       // Check if this passenger already has a request for this ride
       const existingRequests = await admin.firestore()
@@ -200,6 +203,8 @@ exports.onRideRequest = functions.firestore
         .collection('requests')
         .where('passengerId', '==', request.passengerId)
         .get();
+
+      console.log('Existing requests count:', existingRequests.docs.length);
 
       // If more than 1 request exists (the new one we just created), it's a duplicate
       if (existingRequests.docs.length > 1) {
@@ -215,123 +220,57 @@ exports.onRideRequest = functions.firestore
       }
 
       // Get ride details to find the driver
+      console.log('Fetching ride document for rideId:', rideId);
       const rideDoc = await admin.firestore().collection('rides').doc(rideId).get();
-      if (!rideDoc.exists) return;
+      if (!rideDoc.exists) {
+        console.error('Ride document does not exist for rideId:', rideId);
+        return;
+      }
 
       const ride = rideDoc.data();
       const driverId = ride.driverId;
+      console.log('Found driver:', driverId);
 
       // Get passenger details
+      console.log('Fetching passenger document for passengerId:', request.passengerId);
       const passengerDoc = await admin.firestore().collection('users').doc(request.passengerId).get();
-      if (!passengerDoc.exists) return;
+      if (!passengerDoc.exists) {
+        console.error('Passenger document does not exist for passengerId:', request.passengerId);
+        return;
+      }
 
       const passenger = passengerDoc.data();
+      console.log('Found passenger:', passenger.name);
 
       // Get driver's FCM token
+      console.log('Fetching driver document for driverId:', driverId);
       const driverDoc = await admin.firestore().collection('users').doc(driverId).get();
-      if (!driverDoc.exists) return;
+      if (!driverDoc.exists) {
+        console.error('Driver document does not exist for driverId:', driverId);
+        return;
+      }
 
       const driver = driverDoc.data();
       const fcmToken = driver.fcmToken;
 
       if (!fcmToken) {
         console.log('No FCM token for driver:', driverId);
-        return;
-      }
-
-      // Send notification
-      const message = {
-        token: fcmToken,
-        notification: {
-          title: 'New Ride Request',
-          body: `${passenger.name} wants to join your ride from ${ride.from} to ${ride.to}`,
-        },
-        data: {
-          type: 'ride_request',
-          rideId: rideId,
-          requestId: snap.id,
-          passengerId: request.passengerId,
-        },
-        android: {
-          priority: 'high',
-        },
-        apns: {
-          payload: {
-            aps: {
-              sound: 'default',
-            },
-          },
-        },
-      };
-
-      await admin.messaging().send(message);
-      console.log('Notification sent to driver:', driverId);
-
-      // Create notification document
-      await admin.firestore().collection('notifications').add({
-        recipientId: driverId,
-        senderId: request.passengerId,
-        senderName: passenger.name,
-        title: 'New Ride Request',
-        body: `${passenger.name} wants to join your ride`,
-        type: 'ride_request',
-        rideId: rideId,
-        requestId: snap.id,
-        read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-    } catch (error) {
-      console.error('Error sending ride request notification:', error);
-    }
-  });
-
-// Send notification when ride request is accepted
-exports.onRideAccept = functions.firestore
-  .document('rides/{rideId}/requests/{requestId}')
-  .onUpdate(async (change, context) => {
-    const before = change.before.data();
-    const after = change.after.data();
-    const rideId = context.params.rideId;
-
-    // Only trigger if status changed to accepted
-    if (before.status !== 'accepted' && after.status === 'accepted') {
-      try {
-        // Get ride details
-        const rideDoc = await admin.firestore().collection('rides').doc(rideId).get();
-        if (!rideDoc.exists) return;
-
-        const ride = rideDoc.data();
-
-        // Get driver details
-        const driverDoc = await admin.firestore().collection('users').doc(ride.driverId).get();
-        if (!driverDoc.exists) return;
-
-        const driver = driverDoc.data();
-
-        // Get passenger's FCM token
-        const passengerDoc = await admin.firestore().collection('users').doc(after.passengerId).get();
-        if (!passengerDoc.exists) return;
-
-        const passenger = passengerDoc.data();
-        const fcmToken = passenger.fcmToken;
-
-        if (!fcmToken) {
-          console.log('No FCM token for passenger:', after.passengerId);
-          return;
-        }
-
+        // Still create notification document even without FCM token
+      } else {
+        console.log('Found FCM token for driver, sending push notification');
+        
         // Send notification
         const message = {
           token: fcmToken,
           notification: {
-            title: 'Ride Request Accepted',
-            body: `${driver.name} accepted your request for the ride from ${ride.from} to ${ride.to}`,
+            title: 'New Ride Request',
+            body: `${passenger.name} wants to join your ride from ${ride.from} to ${ride.to}`,
           },
           data: {
-            type: 'ride_accepted',
+            type: 'ride_request',
             rideId: rideId,
-            requestId: change.after.id,
-            driverId: ride.driverId,
+            requestId: snap.id,
+            passengerId: request.passengerId,
           },
           android: {
             priority: 'high',
@@ -345,10 +284,117 @@ exports.onRideAccept = functions.firestore
           },
         };
 
-        await admin.messaging().send(message);
-        console.log('Notification sent to passenger:', after.passengerId);
+        try {
+          await admin.messaging().send(message);
+          console.log('FCM notification sent successfully to driver:', driverId);
+        } catch (fcmError) {
+          console.error('Error sending FCM notification:', fcmError);
+        }
+      }
+
+      // Create notification document
+      console.log('Creating notification document for driver:', driverId);
+      await admin.firestore().collection('notifications').add({
+        recipientId: driverId,
+        senderId: request.passengerId,
+        senderName: passenger.name,
+        title: 'New Ride Request',
+        body: `${passenger.name} wants to join your ride`,
+        type: 'ride_request',
+        rideId: rideId,
+        requestId: snap.id,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      console.log('Notification document created successfully');
+    } catch (error) {
+      console.error('Error in onRideRequest function:', error);
+    }
+  });
+
+// Send notification when ride request is accepted
+exports.onRideAccept = functions.firestore
+  .document('rides/{rideId}/requests/{requestId}')
+  .onUpdate(async (change, context) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    const rideId = context.params.rideId;
+
+    // Only trigger if status changed to accepted
+    if (before.status !== 'accepted' && after.status === 'accepted') {
+      console.log('onRideAccept triggered for rideId:', rideId);
+      
+      try {
+        // Get ride details
+        const rideDoc = await admin.firestore().collection('rides').doc(rideId).get();
+        if (!rideDoc.exists) {
+          console.error('Ride document does not exist');
+          return;
+        }
+
+        const ride = rideDoc.data();
+
+        // Get driver details
+        const driverDoc = await admin.firestore().collection('users').doc(ride.driverId).get();
+        if (!driverDoc.exists) {
+          console.error('Driver document does not exist');
+          return;
+        }
+
+        const driver = driverDoc.data();
+        console.log('Found driver:', driver.name);
+
+        // Get passenger's FCM token
+        const passengerDoc = await admin.firestore().collection('users').doc(after.passengerId).get();
+        if (!passengerDoc.exists) {
+          console.error('Passenger document does not exist');
+          return;
+        }
+
+        const passenger = passengerDoc.data();
+        const fcmToken = passenger.fcmToken;
+        console.log('Found passenger:', passenger.name);
+
+        if (!fcmToken) {
+          console.log('No FCM token for passenger:', after.passengerId);
+        } else {
+          console.log('Sending FCM notification to passenger');
+
+          // Send notification
+          const message = {
+            token: fcmToken,
+            notification: {
+              title: 'Ride Request Accepted',
+              body: `${driver.name} accepted your request for the ride from ${ride.from} to ${ride.to}`,
+            },
+            data: {
+              type: 'ride_accepted',
+              rideId: rideId,
+              requestId: change.after.id,
+              driverId: ride.driverId,
+            },
+            android: {
+              priority: 'high',
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: 'default',
+                },
+              },
+            },
+          };
+
+          try {
+            await admin.messaging().send(message);
+            console.log('FCM notification sent successfully to passenger:', after.passengerId);
+          } catch (fcmError) {
+            console.error('Error sending FCM notification:', fcmError);
+          }
+        }
 
         // Create notification document
+        console.log('Creating notification document');
         await admin.firestore().collection('notifications').add({
           recipientId: after.passengerId,
           senderId: ride.driverId,
@@ -361,8 +407,9 @@ exports.onRideAccept = functions.firestore
           read: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        console.log('Notification document created successfully');
       } catch (error) {
-        console.error('Error sending ride accept notification:', error);
+        console.error('Error in onRideAccept function:', error);
       }
     }
   });
@@ -377,60 +424,79 @@ exports.onRideDecline = functions.firestore
 
     // Only trigger if status changed to declined
     if (before.status !== 'declined' && after.status === 'declined') {
+      console.log('onRideDecline triggered for rideId:', rideId);
+      
       try {
         // Get ride details
         const rideDoc = await admin.firestore().collection('rides').doc(rideId).get();
-        if (!rideDoc.exists) return;
+        if (!rideDoc.exists) {
+          console.error('Ride document does not exist');
+          return;
+        }
 
         const ride = rideDoc.data();
 
         // Get driver details
         const driverDoc = await admin.firestore().collection('users').doc(ride.driverId).get();
-        if (!driverDoc.exists) return;
-
-        const driver = driverDoc.data();
-
-        // Get passenger's FCM token
-        const passengerDoc = await admin.firestore().collection('users').doc(after.passengerId).get();
-        if (!passengerDoc.exists) return;
-
-        const passenger = passengerDoc.data();
-        const fcmToken = passenger.fcmToken;
-
-        if (!fcmToken) {
-          console.log('No FCM token for passenger:', after.passengerId);
+        if (!driverDoc.exists) {
+          console.error('Driver document does not exist');
           return;
         }
 
-        // Send notification
-        const message = {
-          token: fcmToken,
-          notification: {
-            title: 'Ride Request Declined',
-            body: `${driver.name} declined your request for the ride from ${ride.from} to ${ride.to}`,
-          },
-          data: {
-            type: 'ride_declined',
-            rideId: rideId,
-            requestId: change.after.id,
-            driverId: ride.driverId,
-          },
-          android: {
-            priority: 'high',
-          },
-          apns: {
-            payload: {
-              aps: {
-                sound: 'default',
+        const driver = driverDoc.data();
+        console.log('Found driver:', driver.name);
+
+        // Get passenger's FCM token
+        const passengerDoc = await admin.firestore().collection('users').doc(after.passengerId).get();
+        if (!passengerDoc.exists) {
+          console.error('Passenger document does not exist');
+          return;
+        }
+
+        const passenger = passengerDoc.data();
+        const fcmToken = passenger.fcmToken;
+        console.log('Found passenger:', passenger.name);
+
+        if (!fcmToken) {
+          console.log('No FCM token for passenger:', after.passengerId);
+        } else {
+          console.log('Sending FCM notification to passenger');
+
+          // Send notification
+          const message = {
+            token: fcmToken,
+            notification: {
+              title: 'Ride Request Declined',
+              body: `${driver.name} declined your request for the ride from ${ride.from} to ${ride.to}`,
+            },
+            data: {
+              type: 'ride_declined',
+              rideId: rideId,
+              requestId: change.after.id,
+              driverId: ride.driverId,
+            },
+            android: {
+              priority: 'high',
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: 'default',
+                },
               },
             },
-          },
-        };
+          };
 
-        await admin.messaging().send(message);
-        console.log('Notification sent to passenger:', after.passengerId);
+          try {
+            await admin.messaging().send(message);
+            console.log('FCM notification sent successfully to passenger:', after.passengerId);
+          } catch (fcmError) {
+            console.error('Error sending FCM notification:', fcmError);
+          }
+        }
 
         // Create notification document
+        console.log('Creating notification document');
         await admin.firestore().collection('notifications').add({
           recipientId: after.passengerId,
           senderId: ride.driverId,
@@ -443,8 +509,9 @@ exports.onRideDecline = functions.firestore
           read: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        console.log('Notification document created successfully');
       } catch (error) {
-        console.error('Error sending ride decline notification:', error);
+        console.error('Error in onRideDecline function:', error);
       }
     }
   });
@@ -541,71 +608,89 @@ exports.onRideCancelled = functions.firestore
 
 // Send notification when passenger cancels their request
 exports.onRequestCancelled = functions.firestore
-  .document('ride_requests/{requestId}')
+  .document('rides/{rideId}/requests/{requestId}')
   .onUpdate(async (change, context) => {
     const before = change.before.data();
     const after = change.after.data();
+    const rideId = context.params.rideId;
     const requestId = context.params.requestId;
 
     // Only trigger if status changed to cancelled
     if (before.status !== 'cancelled' && after.status === 'cancelled') {
+      console.log('onRequestCancelled triggered for rideId:', rideId, 'requestId:', requestId);
+      
       try {
-        const rideId = after.rideId;
-        
         // Get ride details to find the driver
         const rideDoc = await admin.firestore().collection('rides').doc(rideId).get();
-        if (!rideDoc.exists) return;
+        if (!rideDoc.exists) {
+          console.error('Ride document does not exist for rideId:', rideId);
+          return;
+        }
 
         const ride = rideDoc.data();
         const driverId = ride.driverId;
+        console.log('Found driver:', driverId);
 
         // Get passenger details
         const passengerDoc = await admin.firestore().collection('users').doc(after.passengerId).get();
-        if (!passengerDoc.exists) return;
+        if (!passengerDoc.exists) {
+          console.error('Passenger document does not exist');
+          return;
+        }
 
         const passenger = passengerDoc.data();
+        console.log('Found passenger:', passenger.name);
 
         // Get driver's FCM token
         const driverDoc = await admin.firestore().collection('users').doc(driverId).get();
-        if (!driverDoc.exists) return;
+        if (!driverDoc.exists) {
+          console.error('Driver document does not exist');
+          return;
+        }
 
         const driver = driverDoc.data();
         const fcmToken = driver.fcmToken;
 
         if (!fcmToken) {
           console.log('No FCM token for driver:', driverId);
-          return;
-        }
-
-        // Send notification
-        const message = {
-          token: fcmToken,
-          notification: {
-            title: 'Ride Request Cancelled',
-            body: `${passenger.name} cancelled their request for the ride from ${after.from} to ${after.to}`,
-          },
-          data: {
-            type: 'request_cancelled',
-            rideId: rideId,
-            requestId: requestId,
-            passengerId: after.passengerId,
-          },
-          android: {
-            priority: 'high',
-          },
-          apns: {
-            payload: {
-              aps: {
-                sound: 'default',
+        } else {
+          console.log('Sending FCM notification to driver');
+          
+          // Send notification
+          const message = {
+            token: fcmToken,
+            notification: {
+              title: 'Ride Request Cancelled',
+              body: `${passenger.name} cancelled their request for the ride from ${ride.from} to ${ride.to}`,
+            },
+            data: {
+              type: 'request_cancelled',
+              rideId: rideId,
+              requestId: requestId,
+              passengerId: after.passengerId,
+            },
+            android: {
+              priority: 'high',
+            },
+            apns: {
+              payload: {
+                aps: {
+                  sound: 'default',
+                },
               },
             },
-          },
-        };
+          };
 
-        await admin.messaging().send(message);
-        console.log('Notification sent to driver:', driverId);
+          try {
+            await admin.messaging().send(message);
+            console.log('FCM notification sent successfully to driver:', driverId);
+          } catch (fcmError) {
+            console.error('Error sending FCM notification:', fcmError);
+          }
+        }
 
         // Create notification document
+        console.log('Creating notification document');
         await admin.firestore().collection('notifications').add({
           recipientId: driverId,
           senderId: after.passengerId,
@@ -618,8 +703,9 @@ exports.onRequestCancelled = functions.firestore
           read: false,
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
+        console.log('Notification document created successfully');
       } catch (error) {
-        console.error('Error sending request cancellation notification:', error);
+        console.error('Error in onRequestCancelled function:', error);
       }
     }
   });

@@ -934,11 +934,17 @@ class _DriverOfferRideScreenState extends State<DriverOfferRideScreen> {
                         width: double.infinity,
                         child: ElevatedButton(
                           onPressed: () {
+                            // Validate form first to show all error messages
+                            final isValid = _formKey.currentState!.validate();
+                            
+                            // Then check vehicle selection
                             if (selectedVehicleId == null) {
                               msg("Please select a vehicle");
                               return;
                             }
-                            if (_formKey.currentState!.validate()) {
+                            
+                            // Only publish if form is valid
+                            if (isValid) {
                               _publishRide();
                             }
                           },

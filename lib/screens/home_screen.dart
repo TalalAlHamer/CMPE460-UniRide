@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
@@ -394,10 +396,34 @@ class _HomeScreenState extends State<HomeScreen> {
                                       target: _center,
                                       zoom: 13,
                                     ),
-                                    markers: const {},
+                                    onTap: (LatLng position) {
+                                      setState(() {
+                                        _selectedPoint = position;
+                                      });
+                                      _showMessage("Pickup location selected on map");
+                                    },
+                                    markers: _selectedPoint == null
+                                        ? {}
+                                        : {
+                                            Marker(
+                                              markerId: const MarkerId('selected'),
+                                              position: _selectedPoint!,
+                                              icon: BitmapDescriptor.defaultMarkerWithHue(
+                                                BitmapDescriptor.hueRed,
+                                              ),
+                                              infoWindow: const InfoWindow(
+                                                title: 'Selected Pickup Location',
+                                              ),
+                                            ),
+                                          },
                                     zoomControlsEnabled: false,
                                     myLocationButtonEnabled: false,
                                     myLocationEnabled: true,
+                                    gestureRecognizers: <Factory<OneSequenceGestureRecognizer>>{
+                                      Factory<OneSequenceGestureRecognizer>(
+                                        () => EagerGestureRecognizer(),
+                                      ),
+                                    },
                                   ),
                           ),
 

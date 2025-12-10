@@ -17,7 +17,7 @@ class RatingService {
 
       final total = query.docs.fold<int>(
         0,
-        (acc, doc) => acc + (doc['rating'] as int? ?? 0),
+        (acc, doc) => acc + (doc['score'] as int? ?? 0),
       );
 
       return total / query.docs.length;
