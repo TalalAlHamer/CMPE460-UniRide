@@ -54,6 +54,21 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     }
   }
 
+  Future<int> _getCompletedRidesCount() async {
+    try {
+      final querySnapshot = await _firestore
+          .collection('rides')
+          .where('driverId', isEqualTo: widget.driverId)
+          .where('status', isEqualTo: 'completed')
+          .get();
+      
+      return querySnapshot.docs.length;
+    } catch (e) {
+    // Error handling: silently catch to prevent crashes
+      return 0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -107,7 +122,7 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                       const SizedBox(height: 20),
                       _buildCarInfoCard(vehicleData),
                       const SizedBox(height: 20),
-                      _buildRatingCard(),
+                      _buildStatsRow(),
                       const SizedBox(height: 20),
                       _buildPreviousRatings(),
                     ],
@@ -288,6 +303,16 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
     );
   }
 
+  Widget _buildStatsRow() {
+    return Row(
+      children: [
+        Expanded(child: _buildRatingCard()),
+        const SizedBox(width: 12),
+        Expanded(child: _buildRidesCard()),
+      ],
+    );
+  }
+
   Widget _buildRatingCard() {
     return FutureBuilder<double>(
       future: RatingService.getAverageRating(widget.driverId),
@@ -300,7 +325,6 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
             final count = countSnapshot.data ?? 0;
 
             return Container(
-              width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -313,60 +337,100 @@ class _DriverProfileScreenState extends State<DriverProfileScreen> {
                   ),
                 ],
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Average Rating',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        avgRating > 0 ? avgRating.toStringAsFixed(1) : '—',
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: kUniRideTeal2,
-                        ),
-                      ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: kScreenTeal,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.star,
+                      color: kUniRideTeal2,
+                      size: 32,
+                    ),
                   ),
-                  Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: kScreenTeal,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.star,
-                          color: kUniRideTeal2,
-                          size: 40,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '$count ${count == 1 ? 'rating' : 'ratings'}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(height: 12),
+                  Text(
+                    avgRating > 0 ? avgRating.toStringAsFixed(1) : '—',
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: kUniRideTeal2,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$count ${count == 1 ? 'rating' : 'ratings'}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
             );
           },
+        );
+      },
+    );
+  }
+
+  Widget _buildRidesCard() {
+    return FutureBuilder<int>(
+      future: _getCompletedRidesCount(),
+      builder: (context, snapshot) {
+        final ridesCount = snapshot.data ?? 0;
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: kScreenTeal,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.directions_car,
+                  color: kUniRideTeal2,
+                  size: 32,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                '$ridesCount',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: kUniRideTeal2,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                ridesCount == 1 ? 'ride' : 'rides',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
