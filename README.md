@@ -80,7 +80,6 @@ A production-ready Flutter ride-sharing application designed for university stud
 1. **Clone the repository**
    ```bash
    git clone https://github.com/TalalAlHamer/CMPE460-UniRide.git
-   cd CMPE460-UniRide
    ```
 
 2. **Install dependencies**
