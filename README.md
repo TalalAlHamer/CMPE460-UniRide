@@ -7,7 +7,11 @@ A production-ready Flutter ride-sharing application designed for university stud
 [![License](https://img.shields.io/badge/License-Academic-green.svg)](LICENSE)
 
 ---
+## UniRide Video Demo Link
 
+https://youtu.be/dffy7xi07cQ
+
+---
 ## Features
 
 ### Driver Features
